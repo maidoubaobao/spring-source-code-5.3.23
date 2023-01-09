@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns="http://www.mingbao.com/schema/mingbao"
+			xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+			targetNamespace="http://www.mingbao.com/schema/mingbao">
+	<!-- 这里是定义标签名，如 <mingbao:user> -->
+	<xsd:element name="user">
+		<xsd:complexType>
+			<xsd:attribute name="id" type="xsd:string" use="required"/>
+			<xsd:attribute name="name" type="xsd:string" use="required"/>
+			<xsd:attribute name="age" type="xsd:integer" use="required"/>
+			<xsd:attribute name="sex" type="xsd:string" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+
+	<!-- 参考下面的来配置，下面对应着<context:component-scan> -->
+<!--	<xsd:element name="component-scan">-->
+<!--		<xsd:complexType>-->
+<!--			<xsd:attribute name="base-package" type="xsd:string" use="required"/>-->
+<!--		</xsd:complexType>-->
+<!--	</xsd:element>-->
+</xsd:schema>

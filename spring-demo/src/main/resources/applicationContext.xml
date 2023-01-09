@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:mingbao="http://www.mingbao.com/schema/mingbao"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   http://www.springframework.org/schema/beans/spring-beans.xsd
+	   http://www.springframework.org/schema/context
+	   http://www.springframework.org/schema/context/spring-context.xsd
+	   http://www.mingbao.com/schema/mingbao
+	   http://www.mingbao.com/schema/mingbao/spring-mingbao.xsd">
+	<!-- 扫描包路径带注解的类自动装配 -->
+	<context:component-scan base-package="com.mingbao.spring.demo"/>
+
+	<!-- 用户实体 -->
+	<bean id="user" class="com.mingbao.spring.demo.pojo.UserPojo">
+		<constructor-arg name="name" value="mingbao"/>
+		<property name="age" value="18"/>
+		<property name="sex" value="男"/>
+	</bean>
+
+	<!-- 自定义标签 -->
+	<mingbao:user id="mingbao" name="mingbao" age="19" sex="女"/>
+</beans>
