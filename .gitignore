@@ -26,7 +26,8 @@ buildSrc/build
 /framework-bom/build
 /integration-tests/build
 /src/asciidoc/build
-target/
+# spring代码里竟然有target包，这里配了就拉不下来target包，搞笑了
+#target/
 
 # Eclipse artifacts, including WTP generated manifests
 .classpath
