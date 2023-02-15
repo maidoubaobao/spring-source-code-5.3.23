@@ -16,16 +16,16 @@
 
 package org.springframework.build.compile;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.plugins.JavaLibraryPlugin;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginConvention;
 import org.gradle.api.tasks.compile.JavaCompile;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * {@link Plugin} that applies conventions for compiling Java sources in Spring Framework.
@@ -49,9 +49,12 @@ public class CompilerConventionsPlugin implements Plugin<Project> {
 		);
 		COMPILER_ARGS = new ArrayList<>();
 		COMPILER_ARGS.addAll(commonCompilerArgs);
+		/*
+			去掉-Werror，不然会把warn变成error
+			去掉-Xlint:deprecation，忽略过期的方法
+		 */
 		COMPILER_ARGS.addAll(Arrays.asList(
-				"-Xlint:varargs", "-Xlint:fallthrough", "-Xlint:rawtypes", "-Xlint:deprecation",
-				"-Xlint:unchecked", "-Werror"
+				"-Xlint:varargs", "-Xlint:fallthrough", "-Xlint:rawtypes", "-Xlint:unchecked"
 		));
 		TEST_COMPILER_ARGS = new ArrayList<>();
 		TEST_COMPILER_ARGS.addAll(commonCompilerArgs);
