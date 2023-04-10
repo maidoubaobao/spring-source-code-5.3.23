@@ -584,19 +584,35 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// Invoke factory processors registered as beans in the context.
 				invokeBeanFactoryPostProcessors(beanFactory);
 
+				/*
+				注册bean后置处理器，使用<context:component-scan>标签时，会注册 AutowiredAnnotationBeanPostProcessor
+				除此之外，还将 BeanPostProcessorChecker 注册进去了，重新注册了 ApplicationListenerDetector
+				 */
 				// Register bean processors that intercept bean creation.
 				registerBeanPostProcessors(beanFactory);
 				beanPostProcess.end();
 
+				/*
+				初始化消息源，一般情况下，bean工厂里找不到，就设置一个默认的消息源对象：DelegatingMessageSource
+				 */
 				// Initialize message source for this context.
 				initMessageSource();
 
+				/*
+				初始化应用事件组播器，一般情况下，bean工厂中找不到，设置一个默认的组播器：SimpleApplicationEventMulticaster
+				 */
 				// Initialize event multicaster for this context.
 				initApplicationEventMulticaster();
 
+				/*
+				这里调用的就是当前类的方法，实现为空，支持扩展
+				 */
 				// Initialize other special beans in specific context subclasses.
 				onRefresh();
 
+				/*
+				将事件监听器注册到组播器中，默认情况下，没有监听器，也没有要发布的早期事件
+				 */
 				// Check for listener beans and register them.
 				registerListeners();
 
@@ -829,6 +845,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Use parent's if none defined in this context.
 	 */
 	protected void initMessageSource() {
+		/*
+		初始化消息源，一般情况下，bean工厂里找不到，就设置一个默认的消息源对象
+		 */
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (beanFactory.containsLocalBean(MESSAGE_SOURCE_BEAN_NAME)) {
 			this.messageSource = beanFactory.getBean(MESSAGE_SOURCE_BEAN_NAME, MessageSource.class);
@@ -846,10 +865,19 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			}
 		}
 		else {
+			/*
+			一般情况下，bean工厂中是没有消息源对象的，会走到这里，设置一个空的默认的消息源
+			 */
 			// Use empty MessageSource to be able to accept getMessage calls.
 			DelegatingMessageSource dms = new DelegatingMessageSource();
+			/*
+			getInternalParentMessageSource() 返回的是null，取不到父消息源
+			 */
 			dms.setParentMessageSource(getInternalParentMessageSource());
 			this.messageSource = dms;
+			/*
+			将消息源对象注册到bean工厂中
+			 */
 			beanFactory.registerSingleton(MESSAGE_SOURCE_BEAN_NAME, this.messageSource);
 			if (logger.isTraceEnabled()) {
 				logger.trace("No '" + MESSAGE_SOURCE_BEAN_NAME + "' bean, using [" + this.messageSource + "]");
@@ -863,6 +891,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see org.springframework.context.event.SimpleApplicationEventMulticaster
 	 */
 	protected void initApplicationEventMulticaster() {
+		/*
+		初始化应用事件组播器，一般情况下，bean工厂中找不到，设置一个默认的组播器：SimpleApplicationEventMulticaster
+		 */
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (beanFactory.containsLocalBean(APPLICATION_EVENT_MULTICASTER_BEAN_NAME)) {
 			this.applicationEventMulticaster =
@@ -923,11 +954,17 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Doesn't affect other listeners, which can be added without being beans.
 	 */
 	protected void registerListeners() {
+		/*
+		从应用上下文容器中取出监听器，设置到组播器中
+		 */
 		// Register statically specified listeners first.
 		for (ApplicationListener<?> listener : getApplicationListeners()) {
 			getApplicationEventMulticaster().addApplicationListener(listener);
 		}
 
+		/*
+		从bean工厂中取出监听器，设置到组播器中
+		 */
 		// Do not initialize FactoryBeans here: We need to leave all regular beans
 		// uninitialized to let post-processors apply to them!
 		String[] listenerBeanNames = getBeanNamesForType(ApplicationListener.class, true, false);
@@ -935,6 +972,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			getApplicationEventMulticaster().addApplicationListenerBean(listenerBeanName);
 		}
 
+		/*
+		发布早期应用事件
+		 */
 		// Publish early application events now that we finally have a multicaster...
 		Set<ApplicationEvent> earlyEventsToProcess = this.earlyApplicationEvents;
 		this.earlyApplicationEvents = null;
