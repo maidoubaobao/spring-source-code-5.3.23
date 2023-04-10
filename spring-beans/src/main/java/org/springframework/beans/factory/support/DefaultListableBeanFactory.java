@@ -16,35 +16,6 @@
 
 package org.springframework.beans.factory.support;
 
-import java.io.IOException;
-import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectStreamException;
-import java.io.Serializable;
-import java.lang.annotation.Annotation;
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
-import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import javax.inject.Provider;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.TypeConverter;
 import org.springframework.beans.factory.BeanCreationException;
@@ -84,6 +55,34 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.CompositeIterator;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+
+import javax.inject.Provider;
+import java.io.IOException;
+import java.io.NotSerializableException;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.lang.annotation.Annotation;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 /**
  * Spring's default implementation of the {@link ConfigurableListableBeanFactory}
@@ -542,6 +541,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	@Override
 	public String[] getBeanNamesForType(@Nullable Class<?> type, boolean includeNonSingletons, boolean allowEagerInit) {
 		if (!isConfigurationFrozen() || type == null || !allowEagerInit) {
+			/*
+			寻找 BeanDefinitionRegistryPostProcessor 接口的实现类时，走的这里，寻找的思路是：
+			遍历bean工厂的 beanDefinitionNames 属性，看bean定义信息中的 beanClass 的类型是否实现了接口。
+			这里还干了一件事，将bean定义信息拷贝了一份，放到了工厂的 mergedBeanDefinitions 中，并设置 scope 为单例
+			 */
 			return doGetBeanNamesForType(ResolvableType.forRawClass(type), includeNonSingletons, allowEagerInit);
 		}
 		Map<Class<?>, String[]> cache =
@@ -560,27 +564,48 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	private String[] doGetBeanNamesForType(ResolvableType type, boolean includeNonSingletons, boolean allowEagerInit) {
 		List<String> result = new ArrayList<>();
 
+		/*
+		遍历bean工厂中已经注册过的所有bean定义信息
+		 */
 		// Check all bean definitions.
 		for (String beanName : this.beanDefinitionNames) {
 			// Only consider bean as eligible if the bean name is not defined as alias for some other bean.
 			if (!isAlias(beanName)) {
 				try {
+					/*
+					根据bean名称取bean定义信息，是从 mergedBeanDefinitions 集合中取，如果取不到，再从 beanDefinitionMap 集合中取
+					并放入到 mergedBeanDefinitions 集合中
+					 */
 					RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 					// Only check bean definition if it is complete.
 					if (!mbd.isAbstract() && (allowEagerInit ||
 							(mbd.hasBeanClass() || !mbd.isLazyInit() || isAllowEagerClassLoading()) &&
 									!requiresEagerInitForType(mbd.getFactoryBeanName()))) {
+						/*
+						判断当前的bean是否属于 FactoryBean，FactoryBean 和普通的 Bean 是不太一样的
+						这里的判断依据是，是否实现了 FactoryBean 接口
+						 */
 						boolean isFactoryBean = isFactoryBean(beanName, mbd);
 						BeanDefinitionHolder dbd = mbd.getDecoratedDefinition();
 						boolean matchFound = false;
 						boolean allowFactoryBeanInit = (allowEagerInit || containsSingleton(beanName));
 						boolean isNonLazyDecorated = (dbd != null && !mbd.isLazyInit());
 						if (!isFactoryBean) {
+							/*
+							非 FactoryBean 的实现类，走这里
+							 */
 							if (includeNonSingletons || isSingleton(beanName, mbd, dbd)) {
+								/*
+								判断类型是否匹配，其实就是看当前类是否是type类型的子类或实现类
+								在调用BFPP的过程中，这里的type 是 BeanDefinitionRegistryPostProcessor / BeanFactoryPostProcessor
+								 */
 								matchFound = isTypeMatch(beanName, type, allowFactoryBeanInit);
 							}
 						}
 						else {
+							/*
+							FactoryBean 的实现类，走这里
+							 */
 							if (includeNonSingletons || isNonLazyDecorated ||
 									(allowFactoryBeanInit && isSingleton(beanName, mbd, dbd))) {
 								matchFound = isTypeMatch(beanName, type, allowFactoryBeanInit);
@@ -594,6 +619,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 							}
 						}
 						if (matchFound) {
+							/*
+							如果类型匹配，将类名加到集合里去
+							 */
 							result.add(beanName);
 						}
 					}
@@ -616,6 +644,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 		}
 
+		/*
+		下面这个遍历正常情况进不去
+		 */
 		// Check manually registered singletons too.
 		for (String beanName : this.manualSingletonNames) {
 			try {
@@ -889,7 +920,13 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 	@Override
 	protected void clearMergedBeanDefinition(String beanName) {
+		/*
+		标记bean定义信息为旧的，可合并的
+		 */
 		super.clearMergedBeanDefinition(beanName);
+		/*
+		首次实例化时，mergedBeanDefinitionHolders 集合为空
+		 */
 		this.mergedBeanDefinitionHolders.remove(beanName);
 	}
 
@@ -1043,12 +1080,17 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		}
 		else {
 			/*
-				正常情况下会走到这里，hasBeanCreationStarted()=false
+			hasBeanCreationStarted() 方法中是判断bean工厂的 alreadyCreated 中有没有已经加载好的bean
+			在使用了<context:component-scan/>标签时，在完成bean工厂后置处理器的执行后，这里就有值了
+			因此如果在自定义的bean工厂后置处理器调用了 registerBeanDefinition() 方法，hasBeanCreationStarted()=true
 			 */
 			if (hasBeanCreationStarted()) {
 				// Cannot modify startup-time collection elements anymore (for stable iteration)
 				synchronized (this.beanDefinitionMap) {
 					this.beanDefinitionMap.put(beanName, beanDefinition);
+					/*
+					这里通过一个中间对象，来修改 beanDefinitionNames 属性，我感觉可能是为了线程安全
+					 */
 					List<String> updatedDefinitions = new ArrayList<>(this.beanDefinitionNames.size() + 1);
 					updatedDefinitions.addAll(this.beanDefinitionNames);
 					updatedDefinitions.add(beanName);

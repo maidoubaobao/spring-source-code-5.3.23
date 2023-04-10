@@ -16,14 +16,14 @@
 
 package org.springframework.core.type.filter;
 
-import java.lang.annotation.Annotation;
-import java.lang.annotation.Inherited;
-
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
+
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Inherited;
 
 /**
  * A simple {@link TypeFilter} which matches classes with a given annotation,
@@ -96,7 +96,13 @@ public class AnnotationTypeFilter extends AbstractTypeHierarchyTraversingFilter 
 
 	@Override
 	protected boolean matchSelf(MetadataReader metadataReader) {
+		/*
+		这里取出资源类的注解，例如 Component 注解
+		 */
 		AnnotationMetadata metadata = metadataReader.getAnnotationMetadata();
+		/*
+		this.annotationType 就是过滤器要过滤的注解，如 Component 注解，hasAnnotation() 方法判断资源类中是否有该注解
+		 */
 		return metadata.hasAnnotation(this.annotationType.getName()) ||
 				(this.considerMetaAnnotations && metadata.hasMetaAnnotation(this.annotationType.getName()));
 	}

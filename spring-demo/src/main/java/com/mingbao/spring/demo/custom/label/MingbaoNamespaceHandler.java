@@ -1,4 +1,4 @@
-package com.mingbao.spring.demo.config;
+package com.mingbao.spring.demo.custom.label;
 
 import org.springframework.beans.factory.xml.NamespaceHandlerSupport;
 

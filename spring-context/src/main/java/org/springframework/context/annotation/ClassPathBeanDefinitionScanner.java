@@ -16,9 +16,6 @@
 
 package org.springframework.context.annotation;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinitionHolder;
@@ -34,6 +31,9 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.PatternMatchUtils;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * A bean definition scanner that detects bean candidates on the classpath,
@@ -163,6 +163,9 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		this.registry = registry;
 
 		if (useDefaultFilters) {
+			/*
+			将 Component 注解过滤器注册到 includeFilters 属性中，后面在扫描自动注入的类时用到
+			 */
 			registerDefaultFilters();
 		}
 		setEnvironment(environment);
@@ -273,22 +276,46 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		Assert.notEmpty(basePackages, "At least one base package must be specified");
 		Set<BeanDefinitionHolder> beanDefinitions = new LinkedHashSet<>();
 		for (String basePackage : basePackages) {
+			/*
+			扫描出包路径下所有满足条件的bean定义信息，即要被对应的注解修饰，并且可实例化
+			 */
 			Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
 			for (BeanDefinition candidate : candidates) {
+				/*
+				读取注解中定义的的scope属性，并设置到bean定义信息中。如果没配置，默认就是单例模式（singleton）
+				这里的 scopeMetadataResolver 是 AnnotationScopeMetadataResolver 对象
+				 */
 				ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
 				candidate.setScope(scopeMetadata.getScopeName());
+				/*
+				读取注解中定义的bean名称，用于注册这个bean。如果没配置，默认就是类名转驼峰的形式
+				这里的 beanNameGenerator 是 AnnotationBeanNameGenerator 对象
+				 */
 				String beanName = this.beanNameGenerator.generateBeanName(candidate, this.registry);
 				if (candidate instanceof AbstractBeanDefinition) {
+					/*
+					对bean定义信息做后处理，主要是设置一些默认配置，如懒加载模式、依赖检查开关等
+					 */
 					postProcessBeanDefinition((AbstractBeanDefinition) candidate, beanName);
 				}
 				if (candidate instanceof AnnotatedBeanDefinition) {
+					/*
+					解析类上定义的一些注解，并设置到bean定义信息中，如 @Lazy @DependsOn 等
+					 */
 					AnnotationConfigUtils.processCommonDefinitionAnnotations((AnnotatedBeanDefinition) candidate);
 				}
+
+				/*
+				先校验bean定义信息有没有注册过
+				 */
 				if (checkCandidate(beanName, candidate)) {
 					BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
 					definitionHolder =
 							AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 					beanDefinitions.add(definitionHolder);
+					/*
+					将bean定义信息注册到bean工厂
+					 */
 					registerBeanDefinition(definitionHolder, this.registry);
 				}
 			}
@@ -303,8 +330,14 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 * @param beanName the generated bean name for the given bean
 	 */
 	protected void postProcessBeanDefinition(AbstractBeanDefinition beanDefinition, String beanName) {
+		/*
+		设置bean定义信息的默认属性，如懒加载、依赖检查、初始化方法名、销毁方法名等
+		 */
 		beanDefinition.applyDefaults(this.beanDefinitionDefaults);
 		if (this.autowireCandidatePatterns != null) {
+			/*
+			这里进不来，先忽略
+			 */
 			beanDefinition.setAutowireCandidate(PatternMatchUtils.simpleMatch(this.autowireCandidatePatterns, beanName));
 		}
 	}
@@ -334,6 +367,9 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 */
 	protected boolean checkCandidate(String beanName, BeanDefinition beanDefinition) throws IllegalStateException {
 		if (!this.registry.containsBeanDefinition(beanName)) {
+			/*
+			bean工厂中没有注册过
+			 */
 			return true;
 		}
 		BeanDefinition existingDef = this.registry.getBeanDefinition(beanName);
@@ -342,6 +378,9 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 			existingDef = originatingDef;
 		}
 		if (isCompatible(beanDefinition, existingDef)) {
+			/*
+			已注册的bean定义信息和当前扫描的bean定义信息一样，说明注册过了
+			 */
 			return false;
 		}
 		throw new ConflictingBeanDefinitionException("Annotation-specified bean name '" + beanName +

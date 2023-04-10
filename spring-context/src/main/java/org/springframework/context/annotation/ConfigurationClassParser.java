@@ -16,30 +16,8 @@
 
 package org.springframework.context.annotation;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringJoiner;
-import java.util.function.Predicate;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.BeanDefinitionStoreException;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
@@ -84,6 +62,27 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
+import java.util.function.Predicate;
 
 /**
  * Parses a {@link Configuration} class definition, populating a collection of
@@ -171,12 +170,21 @@ class ConfigurationClassParser {
 			BeanDefinition bd = holder.getBeanDefinition();
 			try {
 				if (bd instanceof AnnotatedBeanDefinition) {
+					/*
+					经<context:component-scan>扫描出来的被注解的bean走这里
+					 */
 					parse(((AnnotatedBeanDefinition) bd).getMetadata(), holder.getBeanName());
 				}
 				else if (bd instanceof AbstractBeanDefinition && ((AbstractBeanDefinition) bd).hasBeanClass()) {
+					/*
+					未经<context:component-scan>扫描出来的被注解的bean走这里
+					 */
 					parse(((AbstractBeanDefinition) bd).getBeanClass(), holder.getBeanName());
 				}
 				else {
+					/*
+					未经<context:component-scan>扫描出来的被注解的bean走这里
+					 */
 					parse(bd.getBeanClassName(), holder.getBeanName());
 				}
 			}
@@ -203,6 +211,10 @@ class ConfigurationClassParser {
 	}
 
 	protected final void parse(AnnotationMetadata metadata, String beanName) throws IOException {
+		/*
+		解析bean，主要解析它的注解，看注解中是否配置了一些需要注入的其他bean或配置/资源文件，@ImportResource/@Bean 注解没有处理，
+		不过这两个注解配置的信息已经放到 ConfigurationClass 中了，同时 ConfigurationClass 也放到了当前解析器的 configurationClasses 中
+		 */
 		processConfigurationClass(new ConfigurationClass(metadata, beanName), DEFAULT_EXCLUSION_FILTER);
 	}
 
@@ -222,6 +234,9 @@ class ConfigurationClassParser {
 
 
 	protected void processConfigurationClass(ConfigurationClass configClass, Predicate<String> filter) throws IOException {
+		/*
+		判断是否使用了 @Conditional 注解，是否要跳过
+		 */
 		if (this.conditionEvaluator.shouldSkip(configClass.getMetadata(), ConfigurationPhase.PARSE_CONFIGURATION)) {
 			return;
 		}
@@ -246,10 +261,23 @@ class ConfigurationClassParser {
 		// Recursively process the configuration class and its superclass hierarchy.
 		SourceClass sourceClass = asSourceClass(configClass, filter);
 		do {
+			/*
+			递归解析配置类型的bean，会依次解析：
+			1、使用了配置类型注解的内部成员类
+			2、@PropertySources/@PropertySource 资源注解，解析出资源
+			3、@ComponentScans/@ComponentScan 扫描注解，递归扫描出所有的注解bean
+			4、@Import bean导入注解，解析导入的bean
+			5、@ImportResource 配置文件导入注解，将xml配置文件放到 configClass 中
+			6、@Bean 注解，解析出被注解的方法和实现的接口中的被注解的方法，放到 configClass 中
+			返回的 sourceClass 是父类，如果有父类，会继续解析父类，如果没有，就到此结束
+			 */
 			sourceClass = doProcessConfigurationClass(configClass, sourceClass, filter);
 		}
 		while (sourceClass != null);
 
+		/*
+		将配置类放入集合中
+		 */
 		this.configurationClasses.put(configClass, configClass);
 	}
 
@@ -268,6 +296,9 @@ class ConfigurationClassParser {
 
 		if (configClass.getMetadata().isAnnotated(Component.class.getName())) {
 			// Recursively process any member (nested) classes first
+			/*
+			解析嵌套的内部成员类，如果内部类也使用了配置类的注解，这里会递归解析
+			 */
 			processMemberClasses(configClass, sourceClass, filter);
 		}
 
@@ -276,6 +307,9 @@ class ConfigurationClassParser {
 				sourceClass.getMetadata(), PropertySources.class,
 				org.springframework.context.annotation.PropertySource.class)) {
 			if (this.environment instanceof ConfigurableEnvironment) {
+				/*
+				解析资源配置，对 @PropertySources/@PropertySource 注解中定义的资源路径做解析
+				 */
 				processPropertySource(propertySource);
 			}
 			else {
@@ -290,6 +324,10 @@ class ConfigurationClassParser {
 		if (!componentScans.isEmpty() &&
 				!this.conditionEvaluator.shouldSkip(sourceClass.getMetadata(), ConfigurationPhase.REGISTER_BEAN)) {
 			for (AnnotationAttributes componentScan : componentScans) {
+				/*
+				扫描配置路径下的注解bean，对 @ComponentScans/@ComponentScan 注解中定义的路径做解析
+				最终会使用 ClassPathBeanDefinitionScanner 类来扫描类，和<Context:component-scan>的逻辑一模一样
+				 */
 				// The config class is annotated with @ComponentScan -> perform the scan immediately
 				Set<BeanDefinitionHolder> scannedBeanDefinitions =
 						this.componentScanParser.parse(componentScan, sourceClass.getMetadata().getClassName());
@@ -300,15 +338,25 @@ class ConfigurationClassParser {
 						bdCand = holder.getBeanDefinition();
 					}
 					if (ConfigurationClassUtils.checkConfigurationClassCandidate(bdCand, this.metadataReaderFactory)) {
+						/*
+						递归解析扫描出来的bean
+						 */
 						parse(bdCand.getBeanClassName(), holder.getBeanName());
 					}
 				}
 			}
 		}
 
+		/*
+		解析 @Import 注解，getImports() 方法是解析出注解中定义的类
+		同样，这里也是递归处理
+		 */
 		// Process any @Import annotations
 		processImports(configClass, sourceClass, getImports(sourceClass), filter, true);
 
+		/*
+		解析 @ImportResource 注解，解析配置的xml文件中定义的类
+		 */
 		// Process any @ImportResource annotations
 		AnnotationAttributes importResource =
 				AnnotationConfigUtils.attributesFor(sourceClass.getMetadata(), ImportResource.class);
@@ -316,20 +364,32 @@ class ConfigurationClassParser {
 			String[] resources = importResource.getStringArray("locations");
 			Class<? extends BeanDefinitionReader> readerClass = importResource.getClass("reader");
 			for (String resource : resources) {
+				/*
+				这里仅将定义的xml文件和对应的阅读器放到 ConfigurationClass 类中的 importedResources
+				 */
 				String resolvedResource = this.environment.resolveRequiredPlaceholders(resource);
 				configClass.addImportedResource(resolvedResource, readerClass);
 			}
 		}
 
+		/*
+		解析 @Bean 注解的方法，将方法对象放到 ConfigurationClass 类中的 beanMethods
+		 */
 		// Process individual @Bean methods
 		Set<MethodMetadata> beanMethods = retrieveBeanMethodMetadata(sourceClass);
 		for (MethodMetadata methodMetadata : beanMethods) {
 			configClass.addBeanMethod(new BeanMethod(methodMetadata, configClass));
 		}
 
+		/*
+		递归解析bean实现的接口中定义的 @Bean 注解，处理方式和上面一致
+		 */
 		// Process default methods on interfaces
 		processInterfaces(configClass, sourceClass);
 
+		/*
+		如果bean有父类，要返回父类去做下一步的解析
+		 */
 		// Process superclass, if any
 		if (sourceClass.getMetadata().hasSuperClass()) {
 			String superclass = sourceClass.getMetadata().getSuperClassName();
@@ -341,6 +401,9 @@ class ConfigurationClassParser {
 			}
 		}
 
+		/*
+		没有父类，解析就结束了
+		 */
 		// No superclass -> processing is complete
 		return null;
 	}

@@ -16,16 +16,16 @@
 
 package org.springframework.expression.common;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.ParseException;
 import org.springframework.expression.ParserContext;
 import org.springframework.lang.Nullable;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
 
 /**
  * An expression parser that understands templates. It can be subclassed by expression
@@ -45,6 +45,11 @@ public abstract class TemplateAwareExpressionParser implements ExpressionParser 
 
 	@Override
 	public Expression parseExpression(String expressionString, @Nullable ParserContext context) throws ParseException {
+		/*
+		context 对象包含要解析的前缀占位符'${'和后缀占位符'}'，isTemplate() 方法是 true
+		如果没有占位符，返回的是 LiteralExpression 对象
+		如果有占位符，字符串被拆分成了多个，返回的是 CompositeStringExpression 对象，里面包含 LiteralExpression/SpelExpression 对象数组
+		 */
 		if (context != null && context.isTemplate()) {
 			return parseTemplate(expressionString, context);
 		}
@@ -59,6 +64,10 @@ public abstract class TemplateAwareExpressionParser implements ExpressionParser 
 			return new LiteralExpression("");
 		}
 
+		/*
+		这里将原始字符串解析成多个表达式对象，如：'hello ${foo${abc}}'被解析成'hello '和'foo${abc}'，嵌套的分隔符是去不到的
+
+		 */
 		Expression[] expressions = parseExpressions(expressionString, context);
 		if (expressions.length == 1) {
 			return expressions[0];

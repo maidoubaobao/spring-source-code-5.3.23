@@ -70,9 +70,13 @@ public abstract class NamespaceHandlerSupport implements NamespaceHandler {
 	@Nullable
 	public BeanDefinition parse(Element element, ParserContext parserContext) {
 		/*
-			这里查找标签元素的解析器，最终会调用解析器的 parse() 方法解析标签
+			查找标签元素的解析器，最终会调用解析器的 parse() 方法解析标签
+			<component-scan/> 标签对应的解析器是 ComponentScanBeanDefinitionParser
 		 */
 		BeanDefinitionParser parser = findParserForElement(element, parserContext);
+		/*
+		解析标签，对于 <component-scan/> 标签来说，这里会扫描出包下所有满足条件的被注解的类，以及4个 BeanFactoryPostProcessor 注册到bean工厂
+		 */
 		return (parser != null ? parser.parse(element, parserContext) : null);
 	}
 
@@ -83,7 +87,7 @@ public abstract class NamespaceHandlerSupport implements NamespaceHandler {
 	@Nullable
 	private BeanDefinitionParser findParserForElement(Element element, ParserContext parserContext) {
 		/*
-			这里拿到的是标签元素为：<context:component-scan> 中的 component-scan
+			这里拿到的是标签名称，例如：<context:component-scan> 中的 component-scan
 		 */
 		String localName = parserContext.getDelegate().getLocalName(element);
 		/*

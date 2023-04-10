@@ -1,4 +1,4 @@
-package com.mingbao.spring.demo.config;
+package com.mingbao.spring.demo.custom.label;
 
 import com.mingbao.spring.demo.pojo.UserPojo;
 import org.springframework.beans.PropertyValue;

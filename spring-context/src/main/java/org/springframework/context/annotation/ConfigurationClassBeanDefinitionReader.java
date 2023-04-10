@@ -16,17 +16,8 @@
 
 package org.springframework.context.annotation;
 
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.factory.BeanDefinitionStoreException;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition;
@@ -56,6 +47,14 @@ import org.springframework.core.type.StandardMethodMetadata;
 import org.springframework.lang.NonNull;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Reads a given fully-populated set of ConfigurationClass instances, registering bean
@@ -150,10 +149,19 @@ class ConfigurationClassBeanDefinitionReader {
 			registerBeanDefinitionForImportedConfigurationClass(configClass);
 		}
 		for (BeanMethod beanMethod : configClass.getBeanMethods()) {
+			/*
+			解析 @Bean 注解需要注入的bean定义信息
+			 */
 			loadBeanDefinitionsForBeanMethod(beanMethod);
 		}
 
+		/*
+		解析 @ImportResource 注解中配置的xml文件里定义的bean信息，这里和解析启动配置xml文件的逻辑一模一样
+		 */
 		loadBeanDefinitionsFromImportedResources(configClass.getImportedResources());
+		/*
+		解析通过 @Import 注解注入的实现了 ImportBeanDefinitionRegistrar 接口的类
+		 */
 		loadBeanDefinitionsFromRegistrars(configClass.getImportBeanDefinitionRegistrars());
 	}
 

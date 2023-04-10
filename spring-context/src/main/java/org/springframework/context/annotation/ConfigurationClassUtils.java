@@ -16,14 +16,8 @@
 
 package org.springframework.context.annotation;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.aop.framework.AopInfrastructureBean;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -40,6 +34,11 @@ import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Utilities for identifying {@link Configuration} classes.
@@ -93,6 +92,9 @@ abstract class ConfigurationClassUtils {
 		AnnotationMetadata metadata;
 		if (beanDef instanceof AnnotatedBeanDefinition &&
 				className.equals(((AnnotatedBeanDefinition) beanDef).getMetadata().getClassName())) {
+			/*
+			通过<context:component-scan>标签扫描出来的bean，满足这里的条件，取出它的注解元数据
+			 */
 			// Can reuse the pre-parsed metadata from the given BeanDefinition...
 			metadata = ((AnnotatedBeanDefinition) beanDef).getMetadata();
 		}
@@ -122,17 +124,32 @@ abstract class ConfigurationClassUtils {
 			}
 		}
 
+		/*
+		取bean上定义的 @Configuration 注解
+		 */
 		Map<String, Object> config = metadata.getAnnotationAttributes(Configuration.class.getName());
 		if (config != null && !Boolean.FALSE.equals(config.get("proxyBeanMethods"))) {
+			/*
+			@Configuration 注解中 proxyBeanMethods 属性默认是 true，因此配置了没有修改属性的 @Configuration 注解的bean会进这里
+			在bean定义信息中设置属性 org.springframework.context.annotation.ConfigurationClassPostProcessor.configurationClass 值为 full
+			 */
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_FULL);
 		}
 		else if (config != null || isConfigurationCandidate(metadata)) {
+			/*
+			isConfigurationCandidate() 负责判断bean是否属于配置类型，被 @Component/@ComponentScan/@Import/@ImportResource 注解的bean都是
+			没有配置 @Configuration 注解，但配置了以上4种注解，都会进这里
+			在bean定义信息中设置属性 org.springframework.context.annotation.ConfigurationClassPostProcessor.configurationClass 值为 lite
+			 */
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_LITE);
 		}
 		else {
 			return false;
 		}
 
+		/*
+		如果bean使用了 @Order 注解，将定义的值写入bean定义信息中，后面应该会用到
+		 */
 		// It's a full or lite configuration candidate... Let's determine the order value, if any.
 		Integer order = getOrder(metadata);
 		if (order != null) {

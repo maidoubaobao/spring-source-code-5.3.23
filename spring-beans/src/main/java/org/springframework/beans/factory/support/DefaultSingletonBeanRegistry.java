@@ -16,16 +16,6 @@
 
 package org.springframework.beans.factory.support;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.BeanCreationNotAllowedException;
 import org.springframework.beans.factory.BeanCurrentlyInCreationException;
@@ -36,6 +26,16 @@ import org.springframework.core.SimpleAliasRegistry;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Generic registry for shared bean instances, implementing the
@@ -165,6 +165,9 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	@Override
 	@Nullable
 	public Object getSingleton(String beanName) {
+		/*
+		从3级缓存池中加载bean对象
+		 */
 		return getSingleton(beanName, true);
 	}
 
@@ -178,6 +181,12 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+		/*
+		下面可以看出spring对于bean管理的3级缓存机制
+		singletonObjects 是1级缓存，里面存放的是实例完成的bean
+		earlySingletonObjects 是2级缓存，在bean未实例完成时，就先为其生成引用，为了解决循环依赖
+		singletonFactories 是3级缓存，这里存放是bean原始数据，为了实现aop代理功能
+		 */
 		// Quick check for existing instance without full singleton lock
 		Object singletonObject = this.singletonObjects.get(beanName);
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
@@ -214,6 +223,9 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
 		Assert.notNull(beanName, "Bean name must not be null");
 		synchronized (this.singletonObjects) {
+			/*
+			再次尝试从1级缓存池中取实例，首次创建实例时还是取不到，1级缓存池中存放的都是已经实例化好的bean
+			 */
 			Object singletonObject = this.singletonObjects.get(beanName);
 			if (singletonObject == null) {
 				if (this.singletonsCurrentlyInDestruction) {
@@ -224,6 +236,9 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (logger.isDebugEnabled()) {
 					logger.debug("Creating shared instance of singleton bean '" + beanName + "'");
 				}
+				/*
+				创建前将当前bean的名称放到创建中的集合 singletonsCurrentlyInCreation 中，标识当前bean正在创建中
+				 */
 				beforeSingletonCreation(beanName);
 				boolean newSingleton = false;
 				boolean recordSuppressedExceptions = (this.suppressedExceptions == null);
@@ -231,6 +246,10 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 					this.suppressedExceptions = new LinkedHashSet<>();
 				}
 				try {
+					/*
+					这里是创建bean的核心逻辑
+					singletonFactory 是一个函数式接口，它的实现在 AbstractBeanFactory 类中调用本方法的地方
+					 */
 					singletonObject = singletonFactory.getObject();
 					newSingleton = true;
 				}
@@ -254,9 +273,15 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 					if (recordSuppressedExceptions) {
 						this.suppressedExceptions = null;
 					}
+					/*
+					将当前bean的名称从创建中的集合 singletonsCurrentlyInCreation 中移除
+					 */
 					afterSingletonCreation(beanName);
 				}
 				if (newSingleton) {
+					/*
+					将bean放入到bean工厂的1级缓存 singletonObjects 和注册好的单例集合 registeredSingletons 中，并从2级3级缓存中移除
+					 */
 					addSingleton(beanName, singletonObject);
 				}
 			}

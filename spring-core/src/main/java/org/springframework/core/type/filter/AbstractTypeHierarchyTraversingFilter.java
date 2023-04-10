@@ -16,15 +16,14 @@
 
 package org.springframework.core.type.filter;
 
-import java.io.IOException;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.core.type.ClassMetadata;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.lang.Nullable;
+
+import java.io.IOException;
 
 /**
  * Type filter that is aware of traversing over hierarchy.
@@ -57,6 +56,10 @@ public abstract class AbstractTypeHierarchyTraversingFilter implements TypeFilte
 	public boolean match(MetadataReader metadataReader, MetadataReaderFactory metadataReaderFactory)
 			throws IOException {
 
+		/*
+		被Component注解的类会走这里，matchSelf() 方法的实现在 AnnotationTypeFilter 类中
+		这个方法就是判断资源类有没有声明过滤器中的条件注解
+		 */
 		// This method optimizes avoiding unnecessary creation of ClassReaders
 		// as well as visiting over those readers.
 		if (matchSelf(metadataReader)) {

@@ -10,7 +10,7 @@
 	   http://www.mingbao.com/schema/mingbao
 	   http://www.mingbao.com/schema/mingbao/spring-mingbao.xsd">
 	<!-- 扫描包路径带注解的类自动装配 -->
-	<context:component-scan base-package="com.mingbao.spring.demo"/>
+	<context:component-scan base-package="com.mingbao.spring.demo.scan"/>
 
 	<!-- 用户实体 -->
 	<bean id="user" class="com.mingbao.spring.demo.pojo.UserPojo">

@@ -16,14 +16,14 @@
 
 package org.springframework.core.type.classreading;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 /**
  * Simple implementation of the {@link MetadataReaderFactory} interface,
@@ -99,7 +99,7 @@ public class SimpleMetadataReaderFactory implements MetadataReaderFactory {
 	}
 
 	@Override
-	public MetadataReader getMetadataReader(Resource resource) throws IOException {
+	public MetadataReader  getMetadataReader(Resource resource) throws IOException {
 		return new SimpleMetadataReader(resource, this.resourceLoader.getClassLoader());
 	}
 

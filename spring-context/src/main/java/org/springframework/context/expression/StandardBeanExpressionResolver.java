@@ -16,9 +16,6 @@
 
 package org.springframework.context.expression;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanExpressionException;
 import org.springframework.beans.factory.config.BeanExpressionContext;
@@ -36,6 +33,9 @@ import org.springframework.expression.spel.support.StandardTypeLocator;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Standard implementation of the
@@ -143,11 +143,22 @@ public class StandardBeanExpressionResolver implements BeanExpressionResolver {
 			return value;
 		}
 		try {
+			/*
+			expressionCache 集合里存放的是bean名称与表达式对象的映射关系，首次是空的
+			 */
 			Expression expr = this.expressionCache.get(value);
 			if (expr == null) {
+				/*
+				expressionParser 属性是 SpelExpressionParser 对象
+				解析bean名称，去掉前后缀占位符，拆分成多个字符串
+				expr 是 LiteralExpression 对象，或包含多个 LiteralExpression/SpelExpression 对象的 CompositeStringExpression 对象
+				 */
 				expr = this.expressionParser.parseExpression(value, this.beanExpressionParserContext);
 				this.expressionCache.put(value, expr);
 			}
+			/*
+			首次进来这里为空，会初始化一个标准评估的容器，设置了很多属性，暂时不知道有什么用
+			 */
 			StandardEvaluationContext sec = this.evaluationCache.get(beanExpressionContext);
 			if (sec == null) {
 				sec = new StandardEvaluationContext(beanExpressionContext);
@@ -161,9 +172,16 @@ public class StandardBeanExpressionResolver implements BeanExpressionResolver {
 					ConversionService cs = beanExpressionContext.getBeanFactory().getConversionService();
 					return (cs != null ? cs : DefaultConversionService.getSharedInstance());
 				}));
+				/*
+				这里还留了一个扩展点，是模板方法模式的应用
+				 */
 				customizeEvaluationContext(sec);
 				this.evaluationCache.put(beanExpressionContext, sec);
 			}
+			/*
+			对于没有占位符的字符串来说，这里返回的就是字符串本身，expr 是 LiteralExpression 对象
+			如果有占位符，这里会解析占位符，expr 是 CompositeStringExpression 对象
+			 */
 			return expr.getValue(sec);
 		}
 		catch (Throwable ex) {

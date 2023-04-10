@@ -16,13 +16,6 @@
 
 package org.springframework.beans.factory.support;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
-
 import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.BeanFactory;
@@ -30,6 +23,13 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedExceptionAction;
 
 /**
  * Simple object instantiation strategy for use in a BeanFactory.
@@ -61,12 +61,21 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 	public Object instantiate(RootBeanDefinition bd, @Nullable String beanName, BeanFactory owner) {
 		// Don't override the class with CGLIB if no overrides.
 		if (!bd.hasMethodOverrides()) {
+			/*
+			如果 methodOverrides 为空，就使用普通的实例化方式，否则要创建代理对象
+			 */
 			Constructor<?> constructorToUse;
 			synchronized (bd.constructorArgumentLock) {
+				/*
+				首次实例化一个注解注入的bean时，resolvedConstructorOrFactoryMethod 属性为空
+				 */
 				constructorToUse = (Constructor<?>) bd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse == null) {
 					final Class<?> clazz = bd.getBeanClass();
 					if (clazz.isInterface()) {
+						/*
+						校验是不是一个接口
+						 */
 						throw new BeanInstantiationException(clazz, "Specified class is an interface");
 					}
 					try {
@@ -75,8 +84,14 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 									(PrivilegedExceptionAction<Constructor<?>>) clazz::getDeclaredConstructor);
 						}
 						else {
+							/*
+							获取到构造方法
+							 */
 							constructorToUse = clazz.getDeclaredConstructor();
 						}
+						/*
+						将构造方法设置到bean定义信息中的 resolvedConstructorOrFactoryMethod 属性
+						 */
 						bd.resolvedConstructorOrFactoryMethod = constructorToUse;
 					}
 					catch (Throwable ex) {
@@ -84,6 +99,9 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				}
 			}
+			/*
+			开始实例化bean，通过java反射，调用构造方法来创建一个bean
+			 */
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {

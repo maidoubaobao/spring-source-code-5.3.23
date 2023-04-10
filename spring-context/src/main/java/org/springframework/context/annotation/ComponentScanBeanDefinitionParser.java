@@ -16,14 +16,6 @@
 
 package org.springframework.context.annotation;
 
-import java.lang.annotation.Annotation;
-import java.util.Set;
-import java.util.regex.Pattern;
-
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinitionHolder;
@@ -43,6 +35,13 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import java.lang.annotation.Annotation;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Parser for the {@code <context:component-scan/>} element.
@@ -80,14 +79,26 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 	@Override
 	@Nullable
 	public BeanDefinition parse(Element element, ParserContext parserContext) {
+		/*
+		从 base-package 属性中取出要扫描的包，下面是对包做分割处理，根据",;"或空格换行来分割
+		 */
 		String basePackage = element.getAttribute(BASE_PACKAGE_ATTRIBUTE);
 		basePackage = parserContext.getReaderContext().getEnvironment().resolvePlaceholders(basePackage);
 		String[] basePackages = StringUtils.tokenizeToStringArray(basePackage,
 				ConfigurableApplicationContext.CONFIG_LOCATION_DELIMITERS);
 
+		/*
+		这里是扫描包下有没有bean定义信息，扫描规则默认是根据 @Component 注解来扫描
+		当然像 @Service/@Controller 等注解也能扫描到，因为它们也有 @Component 注解的声明（@Configuration注解也是）
+		扫描到的bean定义信息，会直接注册到bean工厂中
+		 */
 		// Actually scan for bean definitions and register them.
 		ClassPathBeanDefinitionScanner scanner = configureScanner(parserContext, element);
 		Set<BeanDefinitionHolder> beanDefinitions = scanner.doScan(basePackages);
+		/*
+		注册4个 BeanFactoryPostProcessor 的bean定义信息：
+		ConfigurationClassPostProcessor / AutowiredAnnotationBeanPostProcessor / EventListenerMethodProcessor / DefaultEventListenerFactory
+		 */
 		registerComponents(parserContext.getReaderContext(), beanDefinitions, element);
 
 		return null;
@@ -96,9 +107,16 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 	protected ClassPathBeanDefinitionScanner configureScanner(ParserContext parserContext, Element element) {
 		boolean useDefaultFilters = true;
 		if (element.hasAttribute(USE_DEFAULT_FILTERS_ATTRIBUTE)) {
+			/*
+			use-default-filters 默认就是true
+			 */
 			useDefaultFilters = Boolean.parseBoolean(element.getAttribute(USE_DEFAULT_FILTERS_ATTRIBUTE));
 		}
 
+		/*
+			这里创建一个扫描器，扫描器默认基于 Component 注解来扫描
+			创建时会将 Component 注解过滤器注册到 includeFilters 属性中
+		 */
 		// Delegate bean definition registration to scanner class.
 		ClassPathBeanDefinitionScanner scanner = createScanner(parserContext.getReaderContext(), useDefaultFilters);
 		scanner.setBeanDefinitionDefaults(parserContext.getDelegate().getBeanDefinitionDefaults());
@@ -122,12 +140,18 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 			parserContext.getReaderContext().error(ex.getMessage(), parserContext.extractSource(element), ex.getCause());
 		}
 
+		/*
+		这里是解析<context:component-scan/>标签中自定义的过滤规则，涉及两个属性 include-filter 和 exclude-filter
+		 */
 		parseTypeFilters(element, scanner, parserContext);
 
 		return scanner;
 	}
 
 	protected ClassPathBeanDefinitionScanner createScanner(XmlReaderContext readerContext, boolean useDefaultFilters) {
+		/*
+		创建一个基于类路径扫描bean定义信息的扫描器
+		 */
 		return new ClassPathBeanDefinitionScanner(readerContext.getRegistry(), useDefaultFilters,
 				readerContext.getEnvironment(), readerContext.getResourceLoader());
 	}
@@ -145,9 +169,16 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 		// Register annotation config processors, if necessary.
 		boolean annotationConfig = true;
 		if (element.hasAttribute(ANNOTATION_CONFIG_ATTRIBUTE)) {
+			/*
+			annotation-config 属性默认就是 true
+			 */
 			annotationConfig = Boolean.parseBoolean(element.getAttribute(ANNOTATION_CONFIG_ATTRIBUTE));
 		}
 		if (annotationConfig) {
+			/*
+			这里是将注解配置后置处理器注册到bean工厂中，两个比较重要的后置处理器是：
+			ConfigurationClassPostProcessor / AutowiredAnnotationBeanPostProcessor
+			 */
 			Set<BeanDefinitionHolder> processorDefinitions =
 					AnnotationConfigUtils.registerAnnotationConfigProcessors(readerContext.getRegistry(), source);
 			for (BeanDefinitionHolder processorDefinition : processorDefinitions) {
@@ -155,6 +186,9 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 			}
 		}
 
+		/*
+		这里应该是要注册事件监听器，不过里面的实现是空的，忽略
+		 */
 		readerContext.fireComponentRegistered(compositeDef);
 	}
 

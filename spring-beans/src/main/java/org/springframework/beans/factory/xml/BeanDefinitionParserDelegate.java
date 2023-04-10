@@ -1504,7 +1504,7 @@ public class BeanDefinitionParserDelegate {
 
 		/*
 			这里拿到处理器，是根据标签找到对应的处理器，标签和处理器的映射关系配置在 META-INF/spring.handlers 文件中
-			这里的 handler 都是 NamespaceHandlerSupport 的子类
+			这里的 handler 都是 NamespaceHandlerSupport 的子类，以<context>标签为例，对应的 handler 是 ContextNamespaceHandler
 		 */
 		NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
 		if (handler == null) {
