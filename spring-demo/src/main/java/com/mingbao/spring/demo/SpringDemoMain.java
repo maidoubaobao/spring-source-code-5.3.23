@@ -7,9 +7,11 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
  * description: spring启动入口
- * date: 2022/11/13
+ * 这个类主要调试spring的主流程，包括：xml配置文件解析、bean的注入、bean的实例化、BeanFactoryPostProcessor的处理、
+ * BeanPostProcessor的处理以及<context:component-scan>注解对应的ConfigurationClassPostProcessor的处理
  *
  * @author Wind の Wound
+ * @since 2022/11/13
  */
 public class SpringDemoMain {
 

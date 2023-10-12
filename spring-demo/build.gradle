@@ -12,4 +12,11 @@ repositories {
 dependencies {
     api(project(":spring-beans"))
     api(project(":spring-context"))
+    implementation("org.springframework.boot:spring-boot-starter:2.5.15") {
+        /*
+        这里把依赖内部的引用去掉，直接走项目内的源码
+         */
+        exclude group: 'org.springframework', module: 'spring-context'
+        exclude group: 'org.springframework', module: 'spring-core'
+    }
 }

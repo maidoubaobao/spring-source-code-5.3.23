@@ -58,7 +58,9 @@ final class PostProcessorRegistrationDelegate {
 	public static void invokeBeanFactoryPostProcessors(
 			ConfigurableListableBeanFactory beanFactory, List<BeanFactoryPostProcessor> beanFactoryPostProcessors) {
 		/*
-		beanFactoryPostProcessors 是从容器对象中取的后置处理器，为空
+		beanFactoryPostProcessors 是从容器对象中取的后置处理器
+		使用xml配置文件启动容器时，容器中没有后置处理器
+		使用springBoot启动容器时，容器中有3个后置处理器
 		 */
 
 		// WARNING: Although it may appear that the body of this method can be easily
@@ -93,7 +95,8 @@ final class PostProcessorRegistrationDelegate {
 			List<BeanDefinitionRegistryPostProcessor> registryProcessors = new ArrayList<>();
 
 			/*
-			beanFactoryPostProcessors 为空，这里的循环肯定进不去，跳过
+			使用xml配置文件启动容器时，beanFactoryPostProcessors 为空，这里的循环肯定进不去，跳过
+			使用springBoot启动容器时，beanFactoryPostProcessors 里有3个处理器
 			 */
 			for (BeanFactoryPostProcessor postProcessor : beanFactoryPostProcessors) {
 				if (postProcessor instanceof BeanDefinitionRegistryPostProcessor) {

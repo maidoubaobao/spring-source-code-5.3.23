@@ -819,7 +819,12 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
 		/*
-		调用所有的BFPP，getBeanFactoryPostProcessors() 方法是从当前容器对象中取后置处理器，是空的
+		调用所有的BFPP，getBeanFactoryPostProcessors() 方法是从当前容器对象中取后置处理器
+		使用xml配置文件启动容器时，容器中没有后置处理器
+		使用springBoot启动容器时，容器中有3个后置处理器：
+		org.springframework.boot.autoconfigure.SharedMetadataReaderFactoryContextInitializer$CachingMetadataReaderFactoryPostProcessor
+		org.springframework.boot.context.ConfigurationWarningsApplicationContextInitializer$ConfigurationWarningsPostProcessor
+		org.springframework.boot.SpringApplication$PropertySourceOrderingBeanFactoryPostProcessor
 		 */
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 
