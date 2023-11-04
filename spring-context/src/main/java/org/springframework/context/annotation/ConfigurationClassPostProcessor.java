@@ -271,7 +271,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		/*
-		如果所有bean定义信息中没有解析出class类型的bean，这里会为其解析出来
+		所有bean定义信息中没有解析出class类型的bean，这里会为其解析出来
 		还会为 @Configuration 注解的bean生成一个代理类，并将代理类Class类型设置到bean定义信息的 beanClass 属性中
 		 */
 		enhanceConfigurationClasses(beanFactory);
@@ -306,6 +306,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 			被 @Configuration 或 @Component/@ComponentScan/@Import/@ImportResource 注解的bean都是配置类候选bean
 			扩展一下，那被 @Service 注解的bean算不算呢？其实算，因为 @Service 注解上也有一个 @Component 注解
+			SpringBootMain启动主类也是配置类候选bean，因为 @SpringBootApplication 注解继承了 @Configuration 注解
 
 			由于这里使用了<context:component-scan>注解，在前面解析配置文件时，就已经将配置路径下所有被注解的类都扫描进来了
 			那扫描配置路径之外的类（标签里配置的a路径，b路径下是之外的），如果也使用了配置类的注解并以<bean>标签注入了容器，属不属于候选bean？
@@ -362,6 +363,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 		/*
 		configCandidates 里放的是所有使用了注入类注解的bean定义信息
+		SpringBoot项目首次解析到这里时，configCandidates 只有一个启动类：springBootMain
 		 */
 		Set<BeanDefinitionHolder> candidates = new LinkedHashSet<>(configCandidates);
 		Set<ConfigurationClass> alreadyParsed = new HashSet<>(configCandidates.size());
@@ -374,6 +376,8 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			解析所有的候选注解bean，parser 是上面定义的 ConfigurationClassParser 类
 			主要解析bean定义的注解所关联的bean，将这些bean定义信息也注入bean工厂
 			解析结束后，未处理的标签包含：@ImportResource/@Bean，只是将其放到配置类的 importedResources/beanMethods 属性中
+
+			SpringBoot项目启动时，会将所有的自动装配的配置类，写入解析器的 configurationClasses 中
 			 */
 			parser.parse(candidates);
 			/*
@@ -392,6 +396,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			}
 			/*
 			解析剩余两个未解析的注解 @ImportResource/@Bean，将它们定义的bean信息也注入bean工厂
+			在springBoot项目启动时，这里会加载所有自动装配的配置类的bean定义信息，并注入bean工厂
 			 */
 			this.reader.loadBeanDefinitions(configClasses);
 			alreadyParsed.addAll(configClasses);
@@ -469,6 +474,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			if (beanDef instanceof AnnotatedBeanDefinition) {
 				/*
 				由<context:component-scan>标签加载的bean定义信息会进这里
+				SpringBoot项目启动时，会进这里的类包括：启动主类、注解注入的类和自动装配的类
 				 */
 				AnnotatedBeanDefinition annotatedBeanDefinition = (AnnotatedBeanDefinition) beanDef;
 				annotationMetadata = annotatedBeanDefinition.getMetadata();
@@ -477,6 +483,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			if ((configClassAttr != null || methodMetadata != null) && beanDef instanceof AbstractBeanDefinition) {
 				/*
 				由<context:component-scan>标签和@ComponentScan注解加载的bean定义信息都会进这里
+				SpringBoot项目启动时，会进这里的类包括：启动主类、注解注入的类和自动装配的类
 				 */
 				// Configuration class (full or lite) or a configuration-derived @Bean method
 				// -> eagerly resolve bean class at this point, unless it's a 'lite' configuration

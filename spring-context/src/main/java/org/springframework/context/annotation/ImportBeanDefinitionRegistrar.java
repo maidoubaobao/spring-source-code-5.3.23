@@ -82,7 +82,11 @@ public interface ImportBeanDefinitionRegistrar {
 	 */
 	default void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry,
 			BeanNameGenerator importBeanNameGenerator) {
-
+		/*
+		1、当 registerBeanDefinitions() 方法的实现类是 AutoConfigurationPackages.Registrar 时，
+		importingClassMetadata是启动主类的元数据，包括包路径、类加载器、注解等
+		这个方法实现的功能是将 org.springframework.boot.autoconfigure.AutoConfigurationPackages 类的bean定义信息加载到bean工厂中
+		 */
 		registerBeanDefinitions(importingClassMetadata, registry);
 	}
 

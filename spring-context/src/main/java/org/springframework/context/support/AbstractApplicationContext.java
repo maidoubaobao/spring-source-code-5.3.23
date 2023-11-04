@@ -580,6 +580,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				BeanFactoryPostProcessor.postProcessBeanFactory()
 				使用了<context:component-scan>标签时，BeanDefinitionRegistryPostProcessor 是负责解析注解向bean工厂中注入bean定义信息
 				BeanFactoryPostProcessor 则负责一些辅助功能，比如生成一些代理类
+
+				springBoot项目中，在这里完成了自动装配的核心逻辑
 				 */
 				// Invoke factory processors registered as beans in the context.
 				invokeBeanFactoryPostProcessors(beanFactory);
@@ -825,6 +827,11 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		org.springframework.boot.autoconfigure.SharedMetadataReaderFactoryContextInitializer$CachingMetadataReaderFactoryPostProcessor
 		org.springframework.boot.context.ConfigurationWarningsApplicationContextInitializer$ConfigurationWarningsPostProcessor
 		org.springframework.boot.SpringApplication$PropertySourceOrderingBeanFactoryPostProcessor
+		springBoot项目中自动装配的核心逻辑就是在这里，所谓的自动装配其实就是无需手动配置，自动将不同依赖组件的bean注入到容器中
+		需要被装配的bean配置在 spring.factories 文件中，key-value的形式。springBoot启动入口类的 @SpringBootApplication 注解中包含
+		自动装配的注解 @EnableAutoConfiguration，这个注解通过@Import的方式导入了 AutoConfigurationImportSelector 类，这个类实现了
+		DeferredImportSelector 接口
+		最终还是要借助spring中的一个解析器 ConfigurationClassParser，来导入需要自动装配的类。
 		 */
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 

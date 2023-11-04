@@ -172,6 +172,7 @@ class ConfigurationClassParser {
 				if (bd instanceof AnnotatedBeanDefinition) {
 					/*
 					经<context:component-scan>扫描出来的被注解的bean走这里
+					SpringBoot启动类也会走这里
 					 */
 					parse(((AnnotatedBeanDefinition) bd).getMetadata(), holder.getBeanName());
 				}
@@ -182,9 +183,6 @@ class ConfigurationClassParser {
 					parse(((AbstractBeanDefinition) bd).getBeanClass(), holder.getBeanName());
 				}
 				else {
-					/*
-					未经<context:component-scan>扫描出来的被注解的bean走这里
-					 */
 					parse(bd.getBeanClassName(), holder.getBeanName());
 				}
 			}
@@ -197,6 +195,11 @@ class ConfigurationClassParser {
 			}
 		}
 
+		/*
+		SpringBoot项目启动时，AutoConfigurationImportSelector 会被写入 deferredImportSelectorHandler
+		deferred是延迟的意思，这里实现的是延迟导入bean的功能
+		这里是自动装配的核心过程，读取出所有的配置类，写入解析器的 configurationClasses 中
+		 */
 		this.deferredImportSelectorHandler.process();
 	}
 
@@ -214,6 +217,8 @@ class ConfigurationClassParser {
 		/*
 		解析bean，主要解析它的注解，看注解中是否配置了一些需要注入的其他bean或配置/资源文件，@ImportResource/@Bean 注解没有处理，
 		不过这两个注解配置的信息已经放到 ConfigurationClass 中了，同时 ConfigurationClass 也放到了当前解析器的 configurationClasses 中
+
+		SpringBoot项目启动时，会将所有的自动装配的配置类，写入解析器的 configurationClasses 中
 		 */
 		processConfigurationClass(new ConfigurationClass(metadata, beanName), DEFAULT_EXCLUSION_FILTER);
 	}
@@ -350,6 +355,13 @@ class ConfigurationClassParser {
 		/*
 		解析 @Import 注解，getImports() 方法是解析出注解中定义的类
 		同样，这里也是递归处理
+
+		SpringBoot项目启动时，getImports() 方法会解析出两个类：
+		org.springframework.boot.autoconfigure.AutoConfigurationPackages$Registrar
+		org.springframework.boot.autoconfigure.AutoConfigurationImportSelector
+
+		解析完以后，AutoConfigurationPackages$Registrar 放到了 configClass 的 importBeanDefinitionRegistrars
+		AutoConfigurationImportSelector 放到了当前解析器的 deferredImportSelectors
 		 */
 		// Process any @Import annotations
 		processImports(configClass, sourceClass, getImports(sourceClass), filter, true);
@@ -600,14 +612,28 @@ class ConfigurationClassParser {
 	 */
 	private void collectImports(SourceClass sourceClass, Set<SourceClass> imports, Set<SourceClass> visited)
 			throws IOException {
-
+		/*
+		visited 会缓存已经处理好的注解，因为这里是递归处理
+		 */
 		if (visited.add(sourceClass)) {
+			/*
+			SpringBoot项目启动时，解析启动主类上的注解，取到的是：@SpringBootApplication
+			解析 @SpringBootApplication 上的注解，取到的是：@SpringBootConfiguration/@EnableAutoConfiguration/@ComponentScan
+			解析 @SpringBootConfiguration 上的注解，取到的是：@Configuration/Object
+			（这里返回Object是因为 @Indexed 在 org.springframework.stereotype. 包下，会被过滤掉）
+			解析 @Configuration 上的注解，取到的是：Object（@Component被过滤掉）
+			解析 @EnableAutoConfiguration 上的注解，取到的是：@AutoConfigurationPackage/@Import(AutoConfigurationImportSelector.class)
+			解析 @AutoConfigurationPackage 上的注解，取到的是：@Import(AutoConfigurationPackages.Registrar.class)
+			 */
 			for (SourceClass annotation : sourceClass.getAnnotations()) {
 				String annName = annotation.getMetadata().getClassName();
 				if (!annName.equals(Import.class.getName())) {
 					collectImports(annotation, imports, visited);
 				}
 			}
+			/*
+			这里会将 AutoConfigurationPackages.Registrar 和 AutoConfigurationImportSelector 写入
+			 */
 			imports.addAll(sourceClass.getAnnotationAttributes(Import.class.getName(), "value"));
 		}
 	}
@@ -629,6 +655,9 @@ class ConfigurationClassParser {
 				for (SourceClass candidate : importCandidates) {
 					if (candidate.isAssignable(ImportSelector.class)) {
 						// Candidate class is an ImportSelector -> delegate to it to determine imports
+						/*
+						AutoConfigurationImportSelector 会进入到这里
+						 */
 						Class<?> candidateClass = candidate.loadClass();
 						ImportSelector selector = ParserStrategyUtils.instantiateClass(candidateClass, ImportSelector.class,
 								this.environment, this.resourceLoader, this.registry);
@@ -637,6 +666,11 @@ class ConfigurationClassParser {
 							exclusionFilter = exclusionFilter.or(selectorFilter);
 						}
 						if (selector instanceof DeferredImportSelector) {
+							/*
+							AutoConfigurationImportSelector 实现了 DeferredImportSelector 接口
+							将 AutoConfigurationImportSelector 封装到 DeferredImportSelectorHolder 实例
+							并将该实例写入当前类 deferredImportSelectorHandler 中的 deferredImportSelectors 属性中
+							 */
 							this.deferredImportSelectorHandler.handle(configClass, (DeferredImportSelector) selector);
 						}
 						else {
@@ -648,15 +682,25 @@ class ConfigurationClassParser {
 					else if (candidate.isAssignable(ImportBeanDefinitionRegistrar.class)) {
 						// Candidate class is an ImportBeanDefinitionRegistrar ->
 						// delegate to it to register additional bean definitions
+						/*
+						AutoConfigurationPackages.Registrar 会进到这里
+						 */
 						Class<?> candidateClass = candidate.loadClass();
 						ImportBeanDefinitionRegistrar registrar =
 								ParserStrategyUtils.instantiateClass(candidateClass, ImportBeanDefinitionRegistrar.class,
 										this.environment, this.resourceLoader, this.registry);
+						/*
+						实例化 AutoConfigurationPackages.Registrar，然后写入配置类的 importBeanDefinitionRegistrars 属性中
+						 */
 						configClass.addImportBeanDefinitionRegistrar(registrar, currentSourceClass.getMetadata());
 					}
 					else {
 						// Candidate class not an ImportSelector or ImportBeanDefinitionRegistrar ->
 						// process it as an @Configuration class
+						/*
+						springBoot启动时，自动装配的那些配置类会走这里
+						其实就是把这些自动装配的类当作注解了 @Configuration 的配置类一样解析一遍，并放到 configurationClasses 集合中去
+						 */
 						this.importStack.registerImport(
 								currentSourceClass.getMetadata(), candidate.getMetadata().getClassName());
 						processConfigurationClass(candidate.asConfigClass(configClass), exclusionFilter);
@@ -833,13 +877,24 @@ class ConfigurationClassParser {
 		}
 
 		public void process() {
+			/*
+			SpringBoot项目启动时，取出的 deferredImports 中只包含一个持有器，里面的 importSelector 里放的是 AutoConfigurationImportSelector
+			取出来以后，就把解析器里的持有器置为 null
+			 */
 			List<DeferredImportSelectorHolder> deferredImports = this.deferredImportSelectors;
 			this.deferredImportSelectors = null;
 			try {
 				if (deferredImports != null) {
 					DeferredImportSelectorGroupingHandler handler = new DeferredImportSelectorGroupingHandler();
 					deferredImports.sort(DEFERRED_IMPORT_COMPARATOR);
+					/*
+					分组处理器的 register() 注册方法，是对延迟导入选择器进行分组，并注册到分组处理器的 groupings 中
+					同时将延迟导入选择器所属的配置类，也注册到分组处理器的 configurationClasses 中
+					 */
 					deferredImports.forEach(handler::register);
+					/*
+					springBoot项目启动时，这里是自动装配的核心过程，读取出所有的配置类，写入解析器的 configurationClasses 中
+					 */
 					handler.processGroupImports();
 				}
 			}
@@ -857,11 +912,20 @@ class ConfigurationClassParser {
 		private final Map<AnnotationMetadata, ConfigurationClass> configurationClasses = new HashMap<>();
 
 		public void register(DeferredImportSelectorHolder deferredImport) {
+			/*
+			取到的是 AutoConfigurationImportSelector.AutoConfigurationGroup 类
+			 */
 			Class<? extends Group> group = deferredImport.getImportSelector().getImportGroup();
 			DeferredImportSelectorGrouping grouping = this.groupings.computeIfAbsent(
 					(group != null ? group : deferredImport),
 					key -> new DeferredImportSelectorGrouping(createGroup(group)));
+			/*
+			对延迟导入选择器的持有器进行分组，放到分组处理器的 groupings 中，这是个 LinkedHashMap
+			 */
 			grouping.add(deferredImport);
+			/*
+			将延迟导入选择器所属的配置类，放到分组处理器的 configurationClasses 中，这是个 HashMap
+			 */
 			this.configurationClasses.put(deferredImport.getConfigurationClass().getMetadata(),
 					deferredImport.getConfigurationClass());
 		}
@@ -869,9 +933,16 @@ class ConfigurationClassParser {
 		public void processGroupImports() {
 			for (DeferredImportSelectorGrouping grouping : this.groupings.values()) {
 				Predicate<String> exclusionFilter = grouping.getCandidateFilter();
+				/*
+				在springBoot项目启动时，grouping.getImports() 是读取springBoot自动装配的所有配置类
+				排序后封装成 DeferredImportSelector.Group.Entry 的集合，key都是springBoot启动主类的元数据类，value是配置类名称
+				 */
 				grouping.getImports().forEach(entry -> {
 					ConfigurationClass configurationClass = this.configurationClasses.get(entry.getMetadata());
 					try {
+						/*
+						这里轮询解析自动装配的配置类
+						 */
 						processImports(configurationClass, asSourceClass(configurationClass, exclusionFilter),
 								Collections.singleton(asSourceClass(entry.getImportClassName(), exclusionFilter)),
 								exclusionFilter, false);
@@ -938,10 +1009,29 @@ class ConfigurationClassParser {
 		 * @return each import with its associated configuration class
 		 */
 		public Iterable<Group.Entry> getImports() {
+			/*
+			SpringBoot项目启动时，deferredImports 只有一个 ConfigurationClassParser.DeferredImportSelectorHolder 实例
+			 */
 			for (DeferredImportSelectorHolder deferredImport : this.deferredImports) {
+				/*
+				this.group 是 org.springframework.boot.autoconfigure.AutoConfigurationImportSelector.AutoConfigurationGroup 实例
+				是springBoot中定义的类，实现了 DeferredImportSelector.Group 接口
+
+				deferredImport.getImportSelector() 返回的是 AutoConfigurationImportSelector 实例
+				process() 方法中调用了 AutoConfigurationImportSelector.getAutoConfigurationEntry(annotationMetadata)
+				这个方法中又调用了 AutoConfigurationImportSelector.getCandidateConfigurations(annotationMetadata, attributes)
+				getCandidateConfigurations() 中实现了核心的自动装配功能，调用了 SpringFactoriesLoader.loadFactoryNames()
+				SpringFactoriesLoader 类负责解析 META-INF/spring.factories 文件，这是springBoot中自动装配的配置文件
+				在 spring-boot-autoconfigure-xxx.jar 的 META-INF 目录下可以找到该文件，自动装配会用key=EnableAutoConfiguration
+				找到对应的所有需要装配的类，再根据每个类上配置的Condition注解过滤不匹配的配置类，最终会留下13个配置类
+				并将这13个配置类设置到 this.group.entries 中，entries 是个 LinkedHashMap
+				 */
 				this.group.process(deferredImport.getConfigurationClass().getMetadata(),
 						deferredImport.getImportSelector());
 			}
+			/*
+			对配置类进行排序，然后封装成 DeferredImportSelector.Group.Entry 的集合，key都是springBoot启动主类的元数据类，value是配置类名称
+			 */
 			return this.group.selectImports();
 		}
 

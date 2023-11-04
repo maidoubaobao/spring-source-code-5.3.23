@@ -124,6 +124,8 @@ final class PostProcessorRegistrationDelegate {
 			从bean工厂中找出所有实现了 BeanDefinitionRegistryPostProcessor 接口的类，取出类名
 			由于配置文件中只额外定义了<context:component-scan/>标签，所以只会找到1个类：
 			org.springframework.context.annotation.internalConfigurationAnnotationProcessor，对应的类是 ConfigurationClassPostProcessor
+
+			使用springBoot启动容器时，找到的也是 ConfigurationClassPostProcessor
 			 */
 			// First, invoke the BeanDefinitionRegistryPostProcessors that implement PriorityOrdered.
 			String[] postProcessorNames =
@@ -148,6 +150,7 @@ final class PostProcessorRegistrationDelegate {
 			/*
 			调用后置处理器，由于配置了<context:component-scan/>标签，所以这里会执行 ConfigurationClassPostProcessor 处理器
 			ConfigurationClassPostProcessor 处理器会解析bean工厂中所有的bean，将它们定义的注解中需要解析的bean全部注入到bean工厂中
+			使用springBoot启动容器时，执行的也是 ConfigurationClassPostProcessor
 
 			这里执行的是处理器的 postProcessBeanDefinitionRegistry() 方法
 			 */
@@ -207,11 +210,16 @@ final class PostProcessorRegistrationDelegate {
 			集中调用bean工厂后置处理器的 postProcessBeanFactory() 方法
 			上面一路解析下来，满足条件的 registryProcessors 处理器就一个：ConfigurationClassPostProcessor，主要处理定义了 @Configuration
 			注解的bean和 实现了 ImportAware 接口的bean
+
+			SpringBoot项目启动时，这里多了两个处理器：
+			org.springframework.boot.autoconfigure.SharedMetadataReaderFactoryContextInitializer$CachingMetadataReaderFactoryPostProcessor
+			org.springframework.boot.context.ConfigurationWarningsApplicationContextInitializer$ConfigurationWarningsPostProcessor
 			 */
 			// Now, invoke the postProcessBeanFactory callback of all processors handled so far.
 			invokeBeanFactoryPostProcessors(registryProcessors, beanFactory);
 			/*
 			只使用了<context>和<bean>标签，regularPostProcessors 处理器为空
+			springBoot项目启动时，regularPostProcessors 里有一个处理器：PropertySourceOrderingBeanFactoryPostProcessor
 			 */
 			invokeBeanFactoryPostProcessors(regularPostProcessors, beanFactory);
 		}
@@ -311,6 +319,9 @@ final class PostProcessorRegistrationDelegate {
 
 		在解析<context:component-scan>标签时，一共注册了4个bean：ConfigurationClassPostProcessor/AutowiredAnnotationBeanPostProcessor
 		/EventListenerMethodProcessor/DefaultEventListenerFactory，其中 ConfigurationClassPostProcessor 在前面调用bean工厂后置处理器时已经执行过了
+
+		springBoot项目启动时，这里会取出4个bean后置处理器：AutowiredAnnotationBeanPostProcessor/CommonAnnotationBeanPostProcessor
+		/ConfigurationPropertiesBindingPostProcessor/InfrastructureAdvisorAutoProxyCreator
 		 */
 		String[] postProcessorNames = beanFactory.getBeanNamesForType(BeanPostProcessor.class, true, false);
 
@@ -394,6 +405,7 @@ final class PostProcessorRegistrationDelegate {
 
 		/*
 		注册合并的bean定义信息后置处理器，实现了 MergedBeanDefinitionPostProcessor 接口的处理器
+		springBoot项目启动时，这里有2个处理器：AutowiredAnnotationBeanPostProcessor/CommonAnnotationBeanPostProcessor
 		 */
 		// Finally, re-register all internal BeanPostProcessors.
 		sortPostProcessors(internalPostProcessors, beanFactory);
@@ -449,6 +461,16 @@ final class PostProcessorRegistrationDelegate {
 			StartupStep postProcessBeanFactory = beanFactory.getApplicationStartup().start("spring.context.bean-factory.post-process")
 					.tag("postProcessor", postProcessor::toString);
 			/*
+			spring项目启动时，这里只有一个处理器 ConfigurationClassPostProcessor
+
+			springBoot项目启动时，这里有3+1+1+1个处理器
+			CachingMetadataReaderFactoryPostProcessor 和 ConfigurationWarningsPostProcessor 的 postProcessBeanFactory() 实现为空
+			ConfigurationClassPostProcessor 和spring项目中一样
+			PropertySourceOrderingBeanFactoryPostProcessor 处理器负责把 defaultProperties 配置文件移到最后
+			PropertySourcesPlaceholderConfigurer 处理器是解析占位符的，看它把类名也解析了一遍
+			DependsOnDatabaseInitializationPostProcessor 处理器应该是处理数据库相关功能的
+			不过容器中没有 defaultProperties
+
 			调用 ConfigurationClassPostProcessor 配置类后置处理器的 postProcessBeanFactory() 方法，主要干了两件事：
 			1、为 @Configuration 注解的bean生成一个代理类
 			2、处理实现了 ImportAware 接口的bean，调用它的 setImportMetadata() 方法

@@ -94,6 +94,7 @@ abstract class ConfigurationClassUtils {
 				className.equals(((AnnotatedBeanDefinition) beanDef).getMetadata().getClassName())) {
 			/*
 			通过<context:component-scan>标签扫描出来的bean，满足这里的条件，取出它的注解元数据
+			SpringBoot项目启动时，首次进入到这里解析的时启动主类：SpringBootMain
 			 */
 			// Can reuse the pre-parsed metadata from the given BeanDefinition...
 			metadata = ((AnnotatedBeanDefinition) beanDef).getMetadata();
@@ -126,6 +127,7 @@ abstract class ConfigurationClassUtils {
 
 		/*
 		取bean上定义的 @Configuration 注解
+		@SpringBootApplication 注解也继承了 @Configuration 注解，这里也会取出来
 		 */
 		Map<String, Object> config = metadata.getAnnotationAttributes(Configuration.class.getName());
 		if (config != null && !Boolean.FALSE.equals(config.get("proxyBeanMethods"))) {

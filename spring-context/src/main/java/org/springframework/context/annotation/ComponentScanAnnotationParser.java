@@ -92,6 +92,10 @@ class ComponentScanAnnotationParser {
 				scanner.addIncludeFilter(typeFilter);
 			}
 		}
+		/*
+		SpringBoot项目启动时，这里会有两个excludeFilters：TypeExcludeFilter 和 AutoConfigurationExcludeFilter
+		@SpringBootApplication 注解上的 @ComponentScan 中定义了上面的两个过滤器
+		 */
 		for (AnnotationAttributes excludeFilterAttributes : componentScan.getAnnotationArray("excludeFilters")) {
 			List<TypeFilter> typeFilters = TypeFilterUtils.createTypeFiltersFor(excludeFilterAttributes, this.environment,
 				this.resourceLoader, this.registry);
@@ -116,6 +120,9 @@ class ComponentScanAnnotationParser {
 			basePackages.add(ClassUtils.getPackageName(clazz));
 		}
 		if (basePackages.isEmpty()) {
+			/*
+			这里默认获取启动所在的包路径
+			 */
 			basePackages.add(ClassUtils.getPackageName(declaringClass));
 		}
 
@@ -125,6 +132,9 @@ class ComponentScanAnnotationParser {
 				return declaringClass.equals(className);
 			}
 		});
+		/*
+		扫描包路径，解析被注解的类，注入到容器中
+		 */
 		return scanner.doScan(StringUtils.toStringArray(basePackages));
 	}
 

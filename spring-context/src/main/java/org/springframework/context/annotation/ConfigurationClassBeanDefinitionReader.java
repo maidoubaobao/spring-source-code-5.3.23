@@ -125,6 +125,17 @@ class ConfigurationClassBeanDefinitionReader {
 	public void loadBeanDefinitions(Set<ConfigurationClass> configurationModel) {
 		TrackedConditionEvaluator trackedConditionEvaluator = new TrackedConditionEvaluator();
 		for (ConfigurationClass configClass : configurationModel) {
+			/*
+			加载配置类的bean定义信息，configurationModel 里还包含SpringBoot启动类
+			1、当 configClass 的资源类是springBoot启动主类时，这里加载的是 AutoConfigurationPackages 类的bean定义信息
+			2、当 configClass 的资源类是 PropertyPlaceholderAutoConfiguration 时，这里加载的是 PropertyPlaceholderAutoConfiguration
+			和 PropertySourcesPlaceholderConfigurer（通过@Bean注解注入） 类的bean定义信息
+			3、当 configClass 的资源类是 JmxAutoConfiguration 时，这里加载的是 JmxAutoConfiguration
+			和 AnnotationMBeanExporter/ParentAwareNamingStrategy/MBeanServer（通过@Bean注解注入） 类的bean定义信息
+			4、当 configClass 的资源类是 SpringApplicationAdminJmxAutoConfiguration 时，这里加载的是 SpringApplicationAdminJmxAutoConfiguration
+			和 SpringApplicationAdminMXBeanRegistrar（通过@Bean注解注入） 类的bean定义信息
+			以及 AopAutoConfiguration$ClassProxyingConfiguration、AopAutoConfiguration、ApplicationAvailabilityAutoConfiguration等等
+			 */
 			loadBeanDefinitionsForConfigurationClass(configClass, trackedConditionEvaluator);
 		}
 	}
@@ -146,11 +157,23 @@ class ConfigurationClassBeanDefinitionReader {
 		}
 
 		if (configClass.isImported()) {
+			/*
+			如果configClass是被导入的，则需要注册这些导入的配置里的bean定义信息 AnnotatedGenericBeanDefinition，以下类会进入到这里：
+			1、org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration
+			2、org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration
+			3、org.springframework.boot.autoconfigure.admin.SpringApplicationAdminJmxAutoConfiguration
+			 */
 			registerBeanDefinitionForImportedConfigurationClass(configClass);
 		}
 		for (BeanMethod beanMethod : configClass.getBeanMethods()) {
 			/*
 			解析 @Bean 注解需要注入的bean定义信息
+			1、当configClass是 PropertyPlaceholderAutoConfiguration 时，这里会注册1个名字为 propertySourcesPlaceholderConfigurer
+			的bean定义信息 ConfigurationClassBeanDefinition
+			3、当configClass是 JmxAutoConfiguration 时，这里会注册3个名字为 mbeanExporter/objectNamingStrategy/mbeanServer
+			的bean定义信息 ConfigurationClassBeanDefinition
+			4、当configClass是 SpringApplicationAdminJmxAutoConfiguration 时，这里会注册1个名字为 springApplicationAdminRegistrar
+			的bean定义信息 ConfigurationClassBeanDefinition
 			 */
 			loadBeanDefinitionsForBeanMethod(beanMethod);
 		}
@@ -161,6 +184,8 @@ class ConfigurationClassBeanDefinitionReader {
 		loadBeanDefinitionsFromImportedResources(configClass.getImportedResources());
 		/*
 		解析通过 @Import 注解注入的实现了 ImportBeanDefinitionRegistrar 接口的类
+		1、当 configClass 的资源类是springBoot启动主类时，configClass.getImportBeanDefinitionRegistrars() 返回的Map中只有一个键值对，
+		key是 AutoConfigurationPackages.Registrar 对象，value是启动主类的元数据，包括包路径、类加载器、注解等
 		 */
 		loadBeanDefinitionsFromRegistrars(configClass.getImportBeanDefinitionRegistrars());
 	}
@@ -400,6 +425,9 @@ class ConfigurationClassBeanDefinitionReader {
 	}
 
 	private void loadBeanDefinitionsFromRegistrars(Map<ImportBeanDefinitionRegistrar, AnnotationMetadata> registrars) {
+		/*
+		1、当registrar是 AutoConfigurationPackages.Registrar 对象时，metadata是启动主类的元数据，包括包路径、类加载器、注解等
+		 */
 		registrars.forEach((registrar, metadata) ->
 				registrar.registerBeanDefinitions(metadata, this.registry, this.importBeanNameGenerator));
 	}
