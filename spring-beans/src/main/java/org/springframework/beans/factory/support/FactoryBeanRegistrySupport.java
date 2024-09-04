@@ -16,20 +16,16 @@
 
 package org.springframework.beans.factory.support;
 
-import java.security.AccessControlContext;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.BeanCurrentlyInCreationException;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.FactoryBeanNotInitializedException;
 import org.springframework.lang.Nullable;
+
+import java.security.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Support base class for singleton registries which need to handle
@@ -81,6 +77,9 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	@Nullable
 	protected Object getCachedObjectForFactoryBean(String beanName) {
+		/*
+		factoryBeanObjectCache 用来缓存 FactoryBean 工厂类创建类的真正实例，和单例类的缓存池是分开的
+		 */
 		return this.factoryBeanObjectCache.get(beanName);
 	}
 
@@ -98,6 +97,9 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 			synchronized (getSingletonMutex()) {
 				Object object = this.factoryBeanObjectCache.get(beanName);
 				if (object == null) {
+					/*
+					这里就是用 BeanFactory 工厂类创建真正要创建的类实例
+					 */
 					object = doGetObjectFromFactoryBean(factory, beanName);
 					// Only post-process and store if not put there already during getObject() call above
 					// (e.g. because of circular reference processing triggered by custom getBean calls)
@@ -107,6 +109,9 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 					}
 					else {
 						if (shouldPostProcess) {
+							/*
+							下面对bean做后处理，普通的bean不会有什么处理逻辑
+							 */
 							if (isSingletonCurrentlyInCreation(beanName)) {
 								// Temporarily return non-post-processed object, not storing it yet..
 								return object;
@@ -124,6 +129,10 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 							}
 						}
 						if (containsSingleton(beanName)) {
+							/*
+							将 BeanFactory 工厂类真正要创建的类实例放到缓存中
+							注意：这里不是bean工厂的单例缓存池
+							 */
 							this.factoryBeanObjectCache.put(beanName, object);
 						}
 					}
@@ -166,6 +175,9 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 				}
 			}
 			else {
+				/*
+				这里就是用 BeanFactory 工厂类创建真正要创建的类实例
+				 */
 				object = factory.getObject();
 			}
 		}

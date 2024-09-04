@@ -968,13 +968,34 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		// While this may not be part of the regular factory bootstrap, it does otherwise work fine.
 		List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
 
+		/*
+		初始化所有非懒加载的单例bean，这里是实例化bean后，将实例放到bean工厂中
+		 */
 		// Trigger initialization of all non-lazy singleton beans...
 		for (String beanName : beanNames) {
+			/*
+			获取到bean定义信息，过滤掉抽象类、多例类、懒加载类
+			 */
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
+				/*
+				判断bean是否是 FactoryBean
+				如果bean已经实例化了，直接判读实例是否实现了 FactoryBean 接口
+				如果bean还没有实例化，从bean定义信息中取是否是 FactoryBean
+				 */
 				if (isFactoryBean(beanName)) {
+					/*
+					这里是获取 FactoryBean 工厂类实例，所以这里的 beanName 前面拼接了 FactoryBean 类前缀
+					因为bean工厂里存储的是 FactoryBean 工厂类实例，工厂类创建类的真正实例不会存储在bean工厂中
+					从bean工厂中获取 FactoryBean 工厂类实例和获取工厂类创建的类真正实例时用的是同一个名称，就是通过前缀来判断到底要取什么
+
+					首次获取时，这里仅仅是初始化 FactoryBean 工厂类实例，并注册到bean工厂中
+					 */
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
 					if (bean instanceof FactoryBean) {
+						/*
+						普通的 FactoryBean 工厂类，下面的逻辑都走不进去
+						 */
 						FactoryBean<?> factory = (FactoryBean<?>) bean;
 						boolean isEagerInit;
 						if (System.getSecurityManager() != null && factory instanceof SmartFactoryBean) {
@@ -992,6 +1013,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					}
 				}
 				else {
+					/*
+					非 FactoryBean 类型的bean，直接走创建bean的核心流程
+					 */
 					getBean(beanName);
 				}
 			}
@@ -999,6 +1023,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// Trigger post-initialization callback for all applicable beans...
 		for (String beanName : beanNames) {
+			/*
+			直接从bean缓存池中取实例，如果是 FactoryBean 工厂类，取的就是工厂类本身
+			 */
 			Object singletonInstance = getSingleton(beanName);
 			if (singletonInstance instanceof SmartInitializingSingleton) {
 				StartupStep smartInitialize = this.getApplicationStartup().start("spring.beans.smart-initialize")

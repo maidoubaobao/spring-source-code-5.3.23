@@ -584,6 +584,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		try {
 			/*
 			创建bean的真正核心逻辑，使用java反射创建实例，填充属性，执行初始化方法，注册销毁方法，最终返回一个初始化好的实例
+			创建由 BeanFactory 创建的类时，这里拿到的是实现了 BeanFactory 的工厂实例，在后面会调用 getObject 方法获取真正的类实例
 			 */
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {

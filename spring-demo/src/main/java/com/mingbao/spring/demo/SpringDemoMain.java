@@ -1,5 +1,6 @@
 package com.mingbao.spring.demo;
 
+import com.mingbao.spring.demo.factory.bean.UserFactoryBean;
 import com.mingbao.spring.demo.pojo.UserPojo;
 import com.mingbao.spring.demo.scan.ScanUserPojo;
 import org.springframework.context.ApplicationContext;
@@ -29,5 +30,13 @@ public class SpringDemoMain {
 		// 通过<context:component-scan/>标签扫描注入的类
 		ScanUserPojo scanUserPojo = context.getBean(ScanUserPojo.class);
 		System.out.println(scanUserPojo);
+
+		// 通过实现 FactoryBean 注入的类
+		UserPojo factoryUser = (UserPojo) context.getBean("factoryUser");
+		System.out.println(factoryUser);
+		// 获取 FactoryBean 工厂类
+		UserFactoryBean userFactoryBean = (UserFactoryBean) context.getBean("&factoryUser");
+		UserPojo factoryUserBak = userFactoryBean.getObject();
+		System.out.println(factoryUserBak);
 	}
 }

@@ -21,4 +21,7 @@
 
 	<!-- 自定义标签 -->
 	<mingbao:user id="mingbao" name="mingbao" age="19" sex="女"/>
+
+	<!-- FactoryBean构建User对象 -->
+	<bean id="factoryUser" class="com.mingbao.spring.demo.factory.bean.UserFactoryBean" />
 </beans>
