@@ -16,31 +16,15 @@
 
 package org.springframework.core;
 
-import java.io.Serializable;
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.StringJoiner;
-
 import org.springframework.core.SerializableTypeWrapper.FieldTypeProvider;
 import org.springframework.core.SerializableTypeWrapper.MethodParameterTypeProvider;
 import org.springframework.core.SerializableTypeWrapper.TypeProvider;
 import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ConcurrentReferenceHashMap;
-import org.springframework.util.ObjectUtils;
-import org.springframework.util.StringUtils;
+import org.springframework.util.*;
+
+import java.io.Serializable;
+import java.lang.reflect.*;
+import java.util.*;
 
 /**
  * Encapsulates a Java {@link java.lang.reflect.Type}, providing access to
@@ -1336,8 +1320,18 @@ public class ResolvableType implements Serializable {
 	 */
 	static ResolvableType forMethodParameter(
 			MethodParameter methodParameter, @Nullable Type targetType, int nestingLevel) {
+		/*
+		getContainingClass() 方法返回的就是属性所属类的Class对象
+		getDeclaringClass() 方法返回的就是属性被声明类的Class对象，有可能在父类中声明的
 
+		这里的 forType 方法解析的是方法所属的类的的Class类型对象
+		 */
 		ResolvableType owner = forType(methodParameter.getContainingClass()).as(methodParameter.getDeclaringClass());
+		/*
+		targetType 是空，methodParameter 包含方法信息，owner.asVariableResolver() 是方法所属的类信息
+
+		这里的 forType 方法解析的是方法参数的类型对象
+		 */
 		return forType(targetType, new MethodParameterTypeProvider(methodParameter), owner.asVariableResolver()).
 				getNested(nestingLevel, methodParameter.typeIndexesPerLevel);
 	}
@@ -1415,8 +1409,15 @@ public class ResolvableType implements Serializable {
 	 */
 	static ResolvableType forType(
 			@Nullable Type type, @Nullable TypeProvider typeProvider, @Nullable VariableResolver variableResolver) {
-
+		/*
+		解析参数类型时（构造方法参数类型和方法参数类型），会先解析方法所属类的Class类型，再解析方法参数的类型
+		解析方法所属类的Class类型时，type 就是所属的类的Class类型对象，typeProvider 和 variableResolver 都为 null
+		解析方法参数类型时，type 是空，typeProvider 包含方法信息，variableResolver 是方法所属的类信息
+		 */
 		if (type == null && typeProvider != null) {
+			/*
+			解析方法参数类型时，会走到这里，解析出方法参数类型
+			 */
 			type = SerializableTypeWrapper.forTypeProvider(typeProvider);
 		}
 		if (type == null) {
@@ -1426,6 +1427,9 @@ public class ResolvableType implements Serializable {
 		// For simple Class references, build the wrapper right away -
 		// no expensive resolution necessary, so not worth caching...
 		if (type instanceof Class) {
+			/*
+			正常都会走到这里，返回一个可解析类型的对象，里面包含解析出来的类型对象
+			 */
 			return new ResolvableType(type, typeProvider, variableResolver, (ResolvableType) null);
 		}
 

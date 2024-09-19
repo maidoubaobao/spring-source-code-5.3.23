@@ -65,8 +65,7 @@ public abstract class TemplateAwareExpressionParser implements ExpressionParser 
 		}
 
 		/*
-		这里将原始字符串解析成多个表达式对象，如：'hello ${foo${abc}}'被解析成'hello '和'foo${abc}'，嵌套的分隔符是去不到的
-
+		这里将原始字符串解析成多个表达式对象，如：'hello ${foo${abc}}'被解析成'hello '和'foo${abc}'，嵌套的分隔符是去不掉的
 		 */
 		Expression[] expressions = parseExpressions(expressionString, context);
 		if (expressions.length == 1) {

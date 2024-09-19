@@ -16,19 +16,8 @@
 
 package org.springframework.beans;
 
-import java.beans.PropertyEditor;
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Optional;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.core.CollectionFactory;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.core.convert.ConversionService;
@@ -38,6 +27,16 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.NumberUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.beans.PropertyEditor;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Internal helper class for converting property values to target types.
@@ -115,11 +114,17 @@ class TypeConverterDelegate {
 	public <T> T convertIfNecessary(@Nullable String propertyName, @Nullable Object oldValue, @Nullable Object newValue,
 			@Nullable Class<T> requiredType, @Nullable TypeDescriptor typeDescriptor) throws IllegalArgumentException {
 
+		/*
+		自定义的属性设置器，不定义的话这里为null
+		 */
 		// Custom editor for this type?
 		PropertyEditor editor = this.propertyEditorRegistry.findCustomEditor(requiredType, propertyName);
 
 		ConversionFailedException conversionAttemptEx = null;
 
+		/*
+		转换服务，这里一般取不到
+		 */
 		// No custom editor but custom ConversionService specified?
 		ConversionService conversionService = this.propertyEditorRegistry.getConversionService();
 		if (editor == null && conversionService != null && newValue != null && typeDescriptor != null) {
@@ -150,8 +155,14 @@ class TypeConverterDelegate {
 				}
 			}
 			if (editor == null) {
+				/*
+				这里会为基础类型创建默认的属性设置器，如Integer对应的是 CustomNumberEditor
+				 */
 				editor = findDefaultEditor(requiredType);
 			}
+			/*
+			这里是核心的转换逻辑，一般情况下，oldValue 是空，convertedValue 是待转换的值，requiredType 是要转换的类型，editor 是转换器
+			 */
 			convertedValue = doConvertValue(oldValue, convertedValue, requiredType, editor);
 		}
 
@@ -217,6 +228,9 @@ class TypeConverterDelegate {
 					convertedValue = attemptToConvertStringToEnum(requiredType, trimmedValue, convertedValue);
 					standardConversion = true;
 				}
+				/*
+				将字符串转换成数字类型时，会走到这里
+				 */
 				else if (convertedValue instanceof Number && Number.class.isAssignableFrom(requiredType)) {
 					convertedValue = NumberUtils.convertNumberToTargetClass(
 							(Number) convertedValue, (Class<Number>) requiredType);
@@ -357,6 +371,9 @@ class TypeConverterDelegate {
 
 		Object convertedValue = newValue;
 
+		/*
+		处理非String类型的值，xml文件配置的属性进不来这里
+		 */
 		if (editor != null && !(convertedValue instanceof String)) {
 			// Not a String -> use PropertyEditor's setValue.
 			// With standard PropertyEditors, this will return the very same object;
@@ -382,6 +399,9 @@ class TypeConverterDelegate {
 
 		Object returnValue = convertedValue;
 
+		/*
+		处理String数组类型的值，正常进不来这里
+		 */
 		if (requiredType != null && !requiredType.isArray() && convertedValue instanceof String[]) {
 			// Convert String array to a comma-separated String.
 			// Only applies if no PropertyEditor converted the String array before.
@@ -399,6 +419,9 @@ class TypeConverterDelegate {
 					logger.trace("Converting String to [" + requiredType + "] using property editor [" + editor + "]");
 				}
 				String newTextValue = (String) convertedValue;
+				/*
+				这里是核心的转换逻辑，一般情况下，oldValue是空
+				 */
 				return doConvertTextValue(oldValue, newTextValue, editor);
 			}
 			else if (String.class == requiredType) {
@@ -426,6 +449,10 @@ class TypeConverterDelegate {
 			}
 			// Swallow and proceed.
 		}
+		/*
+		这里做了类型转换，将转换后的值设置到 editor 的 value 中，比如将 String 转成 Integer 类型，就是调用 Integer.parseInt() 方法
+
+		 */
 		editor.setAsText(newTextValue);
 		return editor.getValue();
 	}

@@ -1808,7 +1808,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		}
 		/*
 		beanExpressionResolver 是 StandardBeanExpressionResolver 对象
-		解析bean名称，主要解析其中的前后缀占位符，正常情况下这里会原封不动地返回bean的名称
+		解析bean名称/bean属性值，主要解析其中的前后缀占位符，正常情况下这里会原封不动地返回原内容
 		 */
 		return this.beanExpressionResolver.evaluate(value, new BeanExpressionContext(this, scope));
 	}

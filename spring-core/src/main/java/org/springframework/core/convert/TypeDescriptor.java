@@ -16,6 +16,14 @@
 
 package org.springframework.core.convert;
 
+import org.springframework.core.MethodParameter;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.ObjectUtils;
+
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -26,14 +34,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
-
-import org.springframework.core.MethodParameter;
-import org.springframework.core.ResolvableType;
-import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.ObjectUtils;
 
 /**
  * Contextual descriptor about a type to convert from or to.
@@ -107,7 +107,14 @@ public class TypeDescriptor implements Serializable {
 	 */
 	public TypeDescriptor(Property property) {
 		Assert.notNull(property, "Property must not be null");
+		/*
+		getMethodParameter() 方法会返回带参数类型的方法参数对象，对象里 executable 属性中放的就是属性对应的set方法
+		这里返回的是属性的类型的一个包装对象
+		 */
 		this.resolvableType = ResolvableType.forMethodParameter(property.getMethodParameter());
+		/*
+		这里返回的是属性的真实类型
+		 */
 		this.type = this.resolvableType.resolve(property.getType());
 		this.annotatedElement = new AnnotatedElementAdapter(property.getAnnotations());
 	}

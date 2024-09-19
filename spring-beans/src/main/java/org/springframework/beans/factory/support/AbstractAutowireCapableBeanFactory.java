@@ -1314,6 +1314,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
 				mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args)) {
+			/*
+			配置了 <constructor-arg> 标签时，mbd.hasConstructorArgumentValues()==true，会走到这里实例化bean
+			 */
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
 
@@ -1589,6 +1592,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (pvs != null) {
 			/*
 			将配置的属性值赋给bean
+			xml启动配置文件中对bean配置了 <property> 标签时，pvs里就会有值
 			 */
 			applyPropertyValues(beanName, mbd, bw, pvs);
 		}
@@ -1816,12 +1820,18 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 							mbd.getResourceDescription(), beanName, "Error setting property values", ex);
 				}
 			}
+			/*
+			通过 <property> 标签配置属性时，这里会读出属性列表
+			 */
 			original = mpvs.getPropertyValueList();
 		}
 		else {
 			original = Arrays.asList(pvs.getPropertyValues());
 		}
 
+		/*
+		一般情况下，这里的类型转换器是空的。会把bean实例的装饰类赋值给转换器
+		 */
 		TypeConverter converter = getCustomTypeConverter();
 		if (converter == null) {
 			converter = bw;
@@ -1845,11 +1855,24 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					}
 					originalValue = new DependencyDescriptor(new MethodParameter(writeMethod, 0), true);
 				}
+				/*
+				通过 <property> 标签配置属性时，这里会解析配置的属性值，会处理占位符'${}'
+				 */
 				Object resolvedValue = valueResolver.resolveValueIfNecessary(pv, originalValue);
 				Object convertedValue = resolvedValue;
+				/*
+				isWritableProperty() 方法返回的是属性是否可写，这个方法里会解析出每个属性的属性描述符对象 GenericTypeAwarePropertyDescriptor
+				属性描述符对象中包含属性的所属类的Class对象、get/set读写方法和属性类型
+				属性描述符对象在 bw.typeConverterDelegate.propertyEditorRegistry.cachedIntrospectionResults.propertyDescriptors 中
+				通过属性名称索引
+				 */
 				boolean convertible = bw.isWritableProperty(propertyName) &&
 						!PropertyAccessorUtils.isNestedOrIndexedProperty(propertyName);
 				if (convertible) {
+					/*
+					只要属性是可写的，就会走到这里，转换属性值的类型
+					这里的转换器一般就是bean实例的装饰类，在上面赋值的
+					 */
 					convertedValue = convertForProperty(resolvedValue, propertyName, bw, converter);
 				}
 				// Possibly store converted value in merged bean definition,
@@ -1894,6 +1917,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			@Nullable Object value, String propertyName, BeanWrapper bw, TypeConverter converter) {
 
 		if (converter instanceof BeanWrapperImpl) {
+			/*
+			正常情况下，会走到这里
+			 */
 			return ((BeanWrapperImpl) converter).convertForProperty(value, propertyName);
 		}
 		else {

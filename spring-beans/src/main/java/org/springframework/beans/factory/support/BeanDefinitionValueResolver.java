@@ -16,34 +16,19 @@
 
 package org.springframework.beans.factory.support;
 
-import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.TypeConverter;
-import org.springframework.beans.factory.BeanCreationException;
-import org.springframework.beans.factory.BeanDefinitionStoreException;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryUtils;
-import org.springframework.beans.factory.FactoryBean;
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.BeanDefinitionHolder;
-import org.springframework.beans.factory.config.DependencyDescriptor;
-import org.springframework.beans.factory.config.NamedBeanHolder;
-import org.springframework.beans.factory.config.RuntimeBeanNameReference;
-import org.springframework.beans.factory.config.RuntimeBeanReference;
-import org.springframework.beans.factory.config.TypedStringValue;
+import org.springframework.beans.factory.*;
+import org.springframework.beans.factory.config.*;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+
+import java.lang.reflect.Array;
+import java.util.*;
 
 /**
  * Helper class for use in bean factory implementations,
@@ -199,11 +184,22 @@ class BeanDefinitionValueResolver {
 			});
 			return copy;
 		}
+		/*
+		通过 <constructor-arg> 标签注入属性时，会走到这里，
+		通过 <property> 标签配置属性时，会走到这里
+		 */
 		else if (value instanceof TypedStringValue) {
 			// Convert value to target type here.
 			TypedStringValue typedStringValue = (TypedStringValue) value;
+			/*
+			这里会解析值内容，主要是解析占位符'${}'对应的真正的内容，没有配置占位符会直接返回原内容
+			 */
 			Object valueObject = evaluate(typedStringValue);
 			try {
+				/*
+				通过 <constructor-arg> 标签注入属性时，这里是空，可能配置 type/ref 后会不一样
+				通过 <property> 标签注入属性时，这里也是空，可能配置了 ref 后会不一样
+				 */
 				Class<?> resolvedTargetType = resolveTargetType(typedStringValue);
 				if (resolvedTargetType != null) {
 					return this.typeConverter.convertIfNecessary(valueObject, resolvedTargetType);
@@ -234,6 +230,9 @@ class BeanDefinitionValueResolver {
 	 */
 	@Nullable
 	protected Object evaluate(TypedStringValue value) {
+		/*
+		这里会解析值内容，主要是解析占位符'${}'对应的真正的内容，没有配置占位符会直接返回原内容
+		 */
 		Object result = doEvaluate(value.getValue());
 		if (!ObjectUtils.nullSafeEquals(result, value.getValue())) {
 			value.setDynamic();

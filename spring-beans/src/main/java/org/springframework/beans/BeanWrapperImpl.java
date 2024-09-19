@@ -16,19 +16,15 @@
 
 package org.springframework.beans;
 
-import java.beans.PropertyDescriptor;
-import java.lang.reflect.Method;
-import java.security.AccessControlContext;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
-
 import org.springframework.core.ResolvableType;
 import org.springframework.core.convert.Property;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
+
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.Method;
+import java.security.*;
 
 /**
  * Default {@link BeanWrapper} implementation that should be sufficient
@@ -206,16 +202,36 @@ public class BeanWrapperImpl extends AbstractNestablePropertyAccessor implements
 	 */
 	@Nullable
 	public Object convertForProperty(@Nullable Object value, String propertyName) throws TypeMismatchException {
+		/*
+		这里拿到的是前面解析好的属性描述符对象，包含属性所属类的Class对象、属性的类型和get/set读写方法，通过属性名索引
+		 */
 		CachedIntrospectionResults cachedIntrospectionResults = getCachedIntrospectionResults();
+		/*
+		根据属性名称找到对应的属性描述符对象
+		 */
 		PropertyDescriptor pd = cachedIntrospectionResults.getPropertyDescriptor(propertyName);
 		if (pd == null) {
 			throw new InvalidPropertyException(getRootClass(), getNestedPath() + propertyName,
 					"No property '" + propertyName + "' found");
 		}
+		/*
+		这里正常拿不到属性类型描述符
+		 */
 		TypeDescriptor td = cachedIntrospectionResults.getTypeDescriptor(pd);
 		if (td == null) {
+			/*
+			这里创建了一个类型描述符对象
+			property(pd) 方法返回一个 Property 对象，将属性所属的实例类、get/set读写方法、属性名称封装起来
+			TypeDescriptor 对象创建时，会解析出属性的真实类型
+
+			将创建好的类型描述符对象放到 typeDescriptorCache 缓存中，通过属性描述符对象来索引
+			 */
 			td = cachedIntrospectionResults.addTypeDescriptor(pd, new TypeDescriptor(property(pd)));
 		}
+		/*
+		转换属性值的类型
+		通过xml配置的属性都是string类型的，这里可以转换成属性真实的类型，如Integer
+		 */
 		return convertForProperty(propertyName, null, value, td);
 	}
 
